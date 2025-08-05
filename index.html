@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Order Management</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#005f73">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- FIREBASE SDKs -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+      import { getFirestore, initializeFirestore, persistentLocalCache, getDocs, collection, doc, setDoc, onSnapshot, deleteDoc, writeBatch, query, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+      
+      const firebaseConfig = {
+        apiKey: "AIzaSyDdECOGyNKFsKtWDiArUPp0DVd_bN0BjAY",
+        authDomain: "bigmarket-order-app.firebaseapp.com",
+        projectId: "bigmarket-order-app",
+        storageBucket: "bigmarket-order-app.firebasestorage.app",
+        messagingSenderId: "905682701991",
+        appId: "1:905682701991:web:77b4028bbed29204a59582"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      
+      const db = initializeFirestore(app, {
+          localCache: persistentLocalCache()
+      });
+
+      window.firebaseDB = db;
+      window.firebaseTools = { getDocs, collection, doc, setDoc, onSnapshot, deleteDoc, writeBatch, query, updateDoc };
+    </script>
+    
+    <style>
+        :root {
+            --primary-color: #005f73;
+            --secondary-color: #0a9396;
+            --accent-color: #ee9b00;
+            --light-bg: #e0f7fa;
+            --text-color: #212529;
+            --light-text-color: #fff;
+            --border-color: #dee2e6;
+            --card-shadow: 0 4px 15px rgba(0, 95, 115, 0.1);
+            --border-radius: 12px;
+            --danger-color: #e63946;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: var(--light-bg); color: var(--text-color); overscroll-behavior-y: contain; }
+        .page { display: none; flex-direction: column; height: 100%; width: 100%; position: absolute; top: 0; left: 0; background-color: var(--light-bg); transition: transform 0.3s ease-in-out; }
+        .page.active { display: flex; }
+
+        .header { background-color: var(--primary-color); color: var(--light-text-color); padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 100; }
+        .header h1 { font-size: 1.4rem; font-weight: 600; }
+        .header .icon-button { background: none; border: none; color: var(--light-text-color); cursor: pointer; padding: 5px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background-color 0.2s; }
+        .header .icon-button:active { background-color: rgba(255, 255, 255, 0.15); }
+        .header .header-actions { display: flex; align-items: center; gap: 15px; }
+
+        .content { flex-grow: 1; overflow-y: auto; padding: 20px; }
+        .footer { display: flex; justify-content: space-around; background-color: #fff; box-shadow: 0 -2px 8px rgba(0,0,0,0.1); padding: 5px 0 10px 0; flex-shrink: 0; }
+        .footer-button { background: none; border: none; color: #888; display: flex; flex-direction: column; align-items: center; font-size: 0.8rem; cursor: pointer; padding: 5px 15px; border-radius: var(--border-radius); transition: color 0.2s; }
+        .footer-button.active { color: var(--secondary-color); font-weight: 600; }
+        .footer-button svg { width: 26px; height: 26px; margin-bottom: 2px; }
+
+        .card { background-color: #fff; border-radius: var(--border-radius); box-shadow: var(--card-shadow); padding: 16px; margin-bottom: 16px; }
+        
+        .button { display: inline-block; width: 100%; padding: 15px; font-size: 1.1rem; font-weight: 600; text-align: center; color: var(--light-text-color); background: linear-gradient(45deg, var(--secondary-color), var(--primary-color)); border: none; border-radius: var(--border-radius); cursor: pointer; transition: opacity 0.3s ease, transform 0.1s ease; box-shadow: 0 4px 10px rgba(0, 95, 115, 0.25); }
+        .button:active { transform: scale(0.98); opacity: 0.9; }
+        .button:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
+        .button-accent { background: linear-gradient(45deg, #ffb703, #fb8500); }
+        .button-outline { background: #fff; color: var(--primary-color); border: 2px solid var(--border-color); box-shadow: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .button-outline:active { background-color: #f8f9fa; }
+
+        input[type="text"], input[type="number"], input[type="file"], .form-group select { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 12px; transition: border-color 0.2s, box-shadow 0.2s; }
+        input:focus, .form-group select:focus { outline: none; border-color: var(--secondary-color); box-shadow: 0 0 0 2px rgba(10, 147, 150, 0.2); }
+        
+        .search-bar { position: relative; margin-bottom: 20px; }
+        .search-bar input { padding-left: 40px; border-radius: 50px; }
+        .search-bar svg { position: absolute; left: 15px; top: 13px; color: #999; }
+
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background-color: #fff; border-radius: var(--border-radius); margin-bottom: 12px; box-shadow: var(--card-shadow); transition: transform 0.2s ease, box-shadow 0.2s; }
+        .list-item:active { transform: scale(0.99); box-shadow: 0 2px 8px rgba(0, 95, 115, 0.1); }
+        .list-item .info { flex: 1; font-size: 1rem; font-weight: 500; line-height: 1.4; margin-right: 15px; }
+        .list-item-action { flex-shrink: 0; padding: 12px 15px; min-width: 110px; text-align: center; font-size: 1rem; color: var(--light-text-color); background-color: var(--secondary-color); border: none; border-radius: 8px; cursor: pointer; }
+
+        .history-item-actions { display: flex; align-items: center; }
+        .delete-history-btn { background: none; border: none; cursor: pointer; padding: 5px; }
+        .delete-history-btn svg { width: 20px; height: 20px; stroke: var(--danger-color); }
+
+        .payment-method-options { display: flex; gap: 10px; margin: 15px 0; }
+        .payment-method-option { flex: 1; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s ease; }
+        .payment-method-option.selected { background-color: var(--secondary-color); color: white; border-color: var(--secondary-color); font-weight: bold; }
+        
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+        .modal-content { background-color: #fff; margin: auto; padding: 20px; border-radius: var(--border-radius); width: 90%; max-width: 500px; text-align: left; max-height: 80vh; display: flex; flex-direction: column; }
+        .modal-content h2 { text-align: center; margin-bottom: 15px; color: var(--primary-color); }
+        .modal .button { margin-top: 10px; }
+        .modal-body { overflow-y: auto; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+        
+        .modal-footer { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-footer .button { margin-top: 0; }
+        #share-modal p { text-align: center; }
+        
+        #page-salesman-selection .content { display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+        #page-salesman-selection h1 { text-align: center; color: var(--primary-color); margin-bottom: 20px; font-size: 2rem; }
+        #order-item-selection .price-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .price-option { padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; text-align: center; cursor: pointer; transition: all 0.2s ease; }
+        .price-option.selected { background-color: var(--secondary-color); color: white; border-color: var(--secondary-color); font-weight: bold; transform: scale(1.05); }
+        .price-option .price { font-size: 1.1rem; font-weight: bold; }
+        .price-option .margin { font-size: 0.8rem; opacity: 0.8; }
+        #current-order-summary { margin-top: 20px; }
+        .order-item-card { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 15px; margin-bottom: 10px; background: #fff; padding: 12px; border-radius: var(--border-radius); box-shadow: var(--card-shadow); }
+        .order-item-card .item-info .item-name { font-weight: 500; }
+        .order-item-card .item-info .item-details { font-size: 0.9rem; color: #666; }
+        .order-item-card .item-total { font-weight: bold; font-size: 1.1rem; color: var(--primary-color); }
+        .order-item-card .delete-btn { background: none; border: none; color: #e63946; font-size: 1.4rem; cursor: pointer; }
+        #order-grand-total { margin-top: 20px; padding: 15px; background-color: var(--primary-color); color: white; text-align: center; font-size: 1.2rem; font-weight: bold; border-radius: var(--border-radius); }
+        #item-search-container { position: relative; }
+        #item-search-results { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--border-color); border-radius: 0 0 var(--border-radius) var(--border-radius); max-height: 250px; overflow-y: auto; z-index: 1000; box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+        .search-result-item { padding: 12px 16px; cursor: pointer; }
+        .search-result-item:hover { background-color: var(--light-bg); }
+        #generated-image-container img { max-width: 100%; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px; }
+        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: var(--primary-color); animation: spin 1s ease infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .file-upload-wrapper { position: relative; margin-bottom: 15px; }
+        .file-upload-area { border: 2px dashed var(--border-color); border-radius: var(--border-radius); padding: 30px; text-align: center; cursor: pointer; transition: background-color 0.2s, border-color 0.2s; }
+        .file-upload-area:hover { background-color: #f8f9fa; border-color: var(--secondary-color); }
+        .file-upload-area svg { width: 40px; height: 40px; stroke: var(--secondary-color); margin-bottom: 10px; }
+        .file-upload-area p { font-weight: 500; color: var(--primary-color); }
+        .file-upload-area input[type="file"] { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+
+        #order-invoice-wrapper, #collection-report-wrapper { position: absolute; left: -9999px; top: -9999px; background-color: white; width: 500px; font-size: 16px; }
+        #order-invoice, #collection-report { font-family: Calibri, 'Segoe UI', Roboto, sans-serif; color: #333; background: #fff; padding: 40px; }
+        .invoice-header, .report-header { text-align: center; margin-bottom: 25px; }
+        .invoice-header h2, .report-header h2 { margin: 0; font-size: 1.8rem; font-weight: 600; color: var(--primary-color); }
+        .invoice-header p, .report-header p { font-size: 0.9rem; color: #666; margin-top: 5px; }
+        .invoice-details, .report-details { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 12px 0; font-size: 1rem; }
+        .invoice-details div, .report-details div { font-weight: bold; white-space: normal; word-break: break-word; text-align: left; }
+        .invoice-details div:first-child, .report-details div:first-child { max-width: 60%; }
+        .invoice-details div:last-child, .report-details div:last-child { max-width: 40%; text-align: right; }
+        .invoice-table, .report-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .invoice-table th, .report-table th { padding: 10px; text-align: left; border-bottom: 2px solid var(--primary-color); font-weight: 600; }
+        .invoice-table td, .report-table td { padding: 10px; vertical-align: top; }
+        .invoice-table tr:nth-child(even) td, .report-table tr:nth-child(even) td { background-color: #f8f9fa; }
+        .invoice-table td.col-item-name, .report-table td.col-customer-name { font-weight: 500; }
+        .invoice-table th.col-qty, .invoice-table th.col-price, .invoice-table th.col-total, .report-table th.col-method, .report-table th.col-amount,
+        .invoice-table td.col-qty, .invoice-table td.col-price, .invoice-table td.col-total, .report-table td.col-method, .report-table td.col-amount { text-align: right; }
+        .invoice-footer, .report-footer { margin-top: 25px; padding-top: 15px; text-align: right; }
+        .invoice-footer .grand-total, .report-footer .grand-total { font-size: 1.5rem; font-weight: bold; color: var(--primary-color); }
+        
+        #payment-receipt-wrapper { display: none; }
+        .receipt-container { font-family: Calibri, sans-serif; color: black; padding: 20px; width: 100%;}
+        .receipt-header { text-align: center; margin-bottom: 25px; }
+        .receipt-header h2 { font-size: 2rem; font-weight: bold; margin: 0; }
+        .receipt-header p { margin: 5px 0 0; font-size: 1rem; }
+        .receipt-details { margin-bottom: 20px; line-height: 1.6; font-size: 1.1rem; border-top: 1px dashed #ccc; border-bottom: 1px dashed #ccc; padding: 15px 0; }
+        .receipt-details p { display: flex; justify-content: space-between; margin: 8px 0; }
+        .receipt-details strong { font-weight: normal; margin-right: 15px; white-space: nowrap; }
+        .receipt-details span { font-weight: bold; text-align: right; }
+        .receipt-details span#receipt-customer { white-space: normal; word-break: break-word; flex-shrink: 1; }
+        .receipt-amount { text-align: center; margin: 30px 0; }
+        .receipt-amount .amount-label { font-size: 1.1rem; color: #555; }
+        .receipt-amount .amount-value { font-size: 2.5rem; font-weight: bold; color: black; }
+        .receipt-footer { text-align: center; margin-top: 30px; font-size: 0.9rem; color: #777; border-top: 1px dashed #ccc; padding-top: 15px;}
+        
+        @media print {
+            @page { margin: 0; }
+            body { -webkit-print-color-adjust: exact; }
+            body * { visibility: hidden; }
+            #payment-receipt-wrapper, #payment-receipt-wrapper * { visibility: visible; }
+            #payment-receipt-wrapper { visibility: visible !important; display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="page-salesman-selection" class="page active">
+        <div class="content">
+            <h1>Select Salesman</h1>
+            <button class="button" data-salesman="UNNI">UNNI</button>
+            <button class="button" data-salesman="RIYAS">RIYAS</button>
+        </div>
+    </div>
+
+    <div id="page-main-view" class="page">
+        <div class="header">
+            <button class="icon-button" id="logout-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+            </button>
+            <h1 id="main-view-header">Orders</h1>
+            <div class="header-actions">
+                <button class="icon-button" id="history-icon-btn">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+                </button>
+                <button class="icon-button" id="settings-icon-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </button>
+            </div>
+        </div>
+        <div class="content">
+            <div id="customer-view">
+                <div id="customer-list-container"></div>
+            </div>
+            <div id="payment-view" style="display:none;">
+                <div id="payment-customer-list-container"></div>
+            </div>
+        </div>
+        <div class="footer">
+            <button class="footer-button active" id="orders-tab-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 2H8.6c-.4 0-.8.2-1.1.5-.3.3-.5.7-.5 1.1V21c0 .6.4 1 1 1h12c.6 0 1-.4 1-1V6.5L15.5 2z"></path><path d="M15 2v5h5"></path></svg>
+                <span>Orders</span>
+            </button>
+            <button class="footer-button" id="payments-tab-btn">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                <span>Payments</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="page-order" class="page">
+        <div class="header">
+            <button class="icon-button" id="back-to-customers-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <h1 id="order-customer-name">New Order</h1>
+            <div class="icon-button" style="width: 24px;"></div>
+        </div>
+        <div class="content">
+            <div id="order-item-selection" class="card">
+                <h3>Add Item</h3>
+                <div id="item-search-container"><input type="text" id="item-search-input" placeholder="Search for an item..."><div id="item-search-results"></div></div>
+                <div id="item-details-form" style="display: none;"><input type="number" id="item-quantity" placeholder="Quantity" min="1"><div class="price-options"><div class="price-option" id="price1-option"></div><div class="price-option" id="price2-option"></div><div class="price-option" id="price3-option"></div><div class="price-option" id="custom-price-option">Custom</div></div><input type="number" id="custom-price-input" placeholder="Enter Custom Price" style="display: none;"><div id="custom-price-margin" style="text-align:center; margin-bottom: 10px; font-weight: bold;"></div><button id="add-item-btn" class="button">Add to Order</button></div>
+            </div>
+            <div id="current-order-summary"><h3 style="margin-bottom: 10px;">Current Order</h3><div id="order-items-list"></div><div id="order-grand-total"></div></div>
+        </div>
+        <div style="padding: 20px; flex-shrink: 0;"><button id="confirm-order-btn" class="button button-accent">Confirm Order</button></div>
+    </div>
+    
+    <div id="page-payment" class="page">
+        <div class="header">
+             <button class="icon-button" id="back-to-main-btn-payment">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <h1 id="payment-customer-name">Collect Payment</h1>
+            <div class="icon-button" style="width: 24px;"></div>
+        </div>
+        <div class="content"><div class="card"><input type="number" id="payment-amount" placeholder="Enter Amount" min="0"><div class="payment-method-options"><div class="payment-method-option selected" data-method="Cash">Cash</div><div class="payment-method-option" data-method="UPI">UPI</div></div><button id="confirm-payment-btn" class="button">Confirm Payment</button><button id="print-receipt-btn" class="button button-outline" style="display:none; margin-top: 10px;">Print Receipt</button></div></div>
+    </div>
+
+    <div id="page-order-history" class="page">
+        <div class="header">
+             <button class="icon-button" id="back-to-main-btn-order-history">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <h1>Order History</h1>
+            <div class="icon-button" style="width: 24px;"></div>
+        </div>
+        <div class="content"><div id="order-history-list"></div></div>
+    </div>
+    
+    <div id="page-payment-history" class="page">
+        <div class="header">
+             <button class="icon-button" id="back-to-main-btn-payment-history">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <h1>Payment History</h1>
+            <div class="icon-button" style="width: 24px;"></div>
+        </div>
+        <div class="content">
+            <button id="share-collection-report-btn" class="button" style="margin-bottom: 20px;">Share Today's Report</button>
+            <div id="payment-history-list"></div>
+        </div>
+    </div>
+
+    <div id="page-settings" class="page">
+        <div class="header">
+            <button class="icon-button" id="back-to-main-btn-settings">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <h1>Manage Data</h1>
+            <div class="icon-button" style="width: 24px;"></div>
+        </div>
+        <div class="content">
+            <div class="card">
+                <h3>Upload New Data</h3>
+                <p style="margin-bottom: 15px; font-style: italic; color: #555;">Uploading will replace existing data.</p>
+                <div class="file-upload-wrapper">
+                    <div class="file-upload-area">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <p>Upload Customer CSV</p>
+                        <input type="file" id="customer-file-upload" accept=".csv">
+                    </div>
+                </div>
+                <div class="file-upload-wrapper">
+                    <div class="file-upload-area">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <p>Upload Item CSV</p>
+                        <input type="file" id="item-file-upload" accept=".csv">
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Edit Existing Data</h3>
+                <button class="button button-outline" id="edit-customers-btn" style="margin-bottom: 10px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    Edit Customers
+                </button>
+                <button class="button button-outline" id="edit-items-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    Edit Items
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-edit-data" class="page">
+        <div class="header">
+            <button class="icon-button" id="back-to-settings-btn">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <h1 id="edit-data-header">Edit</h1>
+            <div class="icon-button" style="width: 24px;"></div>
+        </div>
+        <div class="content">
+            <div class="search-bar"><input type="text" id="edit-data-search" placeholder="Search..."></div>
+            <div id="edit-data-list"></div>
+        </div>
+    </div>
+
+    <!-- Hidden elements for generation -->
+    <div id="order-invoice-wrapper"><div id="order-invoice"><div class="invoice-header"><h2 >ORDER SUMMARY</h2><p id="invoice-salesman"></p></div><div class="invoice-details"><div id="invoice-customer"></div><div id="invoice-date"></div></div><table class="invoice-table"><thead><tr><th>ITEM</th><th class="col-qty">QTY</th><th class="col-price">PRICE</th><th class="col-total">TOTAL</th></tr></thead><tbody id="invoice-table-body"></tbody></table><div class="invoice-footer"><div class="grand-total" id="invoice-grand-total"></div></div></div></div>
+    <div id="payment-receipt-wrapper"><div class="receipt-container"><div class="receipt-header"><h2>MF BIGMARKET</h2><p>Payment Receipt</p></div><div class="receipt-details"><p><strong>Date:</strong><span id="receipt-date"></span></p><p><strong>Salesman:</strong><span id="receipt-salesman"></span></p><p><strong>Customer:</strong><span id="receipt-customer"></span></p><p><strong>Pay Method:</strong><span id="receipt-method"></span></p></div><div class="receipt-amount"><div class="amount-label">Amount Received</div><div class="amount-value" id="receipt-amount"></div></div><div class="receipt-footer">Thank you for your business!</div></div></div>
+    <div id="collection-report-wrapper"><div id="collection-report"><div class="report-header"><h2>MF BIGMARKET</h2><p>Daily Collection Report</p></div><div class="report-details"><div id="report-salesman"></div><div id="report-date"></div></div><table class="report-table"><thead><tr><th>CUSTOMER</th><th class="col-method">METHOD</th><th class="col-amount">AMOUNT</th></tr></thead><tbody id="report-table-body"></tbody></table><div class="report-footer"><div class="grand-total" id="report-grand-total"></div></div></div></div>
+    <div id="share-modal" class="modal"><div class="modal-content"><h2 id="share-modal-title">Order Saved!</h2><p id="share-modal-text">Share the order summary with the customer.</p><div id="generated-image-container"><div class="spinner"></div></div><div class="modal-footer"><button class="button button-outline" id="close-modal-btn">Close</button><button class="button button-accent" id="share-image-btn" style="display:none;">Send as JPG</button></div></div></div>
+    <div id="edit-modal" class="modal"><div class="modal-content"><h2 id="edit-modal-title">Edit</h2><div class="modal-body" id="edit-modal-body"></div><div class="modal-footer"><button class="button button-outline" id="close-edit-modal-btn">Cancel</button><button class="button" id="save-edit-btn">Save Changes</button></div></div></div>
+
+<script type="module">
+    // This script block runs after the Firebase SDKs are loaded.
+    document.addEventListener('DOMContentLoaded', () => {
+        // Check if Firebase was initialized correctly
+        if (!window.firebaseDB || !window.firebaseTools) {
+            document.body.innerHTML = `<div style="padding: 20px; text-align: center;"><h1>Initialization Error</h1><p>Could not connect to the database. Please check your internet connection and Firebase configuration.</p></div>`;
+            return;
+        }
+        
+        let appState = {
+            salesman: null, customer: null, items: [], customers: [],
+            orders: {}, payments: {}, currentOrder: [], selectedItem: null, selectedPriceOption: null,
+            currentPayment: {}, currentView: 'orders', editing: { type: null, id: null }
+        };
+
+        const { getDocs, collection, doc, setDoc, onSnapshot, deleteDoc, writeBatch, query, updateDoc } = window.firebaseTools;
+        const db = window.firebaseDB;
+
+        // --- Data Management ---
+        const uploadDefaultData = async () => {
+             const defaultCustomers = [{"Customer":"7 DAYS ULIKKAL","Salesman":"UNNI","Phone":"8848416934"},{"Customer":"ALEEF PERINKARI","Salesman":"UNNI","Phone":"7306136240"},{"Customer":"AMMUTTY URUPPUMKUTTY","Salesman":"UNNI","Phone":"9544668088"},{"Customer":"ANGEL STORE CHARAL","Salesman":"UNNI","Phone":"8921422120"},{"Customer":"APPOLLO KALLUVAYAL","Salesman":"UNNI","Phone":"9947880030"},{"Customer":"CT VILAMANA","Salesman":"UNNI","Phone":"9961065723"},{"Customer":"DEVARAJAN VILAMANA","Salesman":"UNNI","Phone":"9747201238"},{"Customer":"EASSA PERINKIRI","Salesman":"UNNI","Phone":"7736824614"},{"Customer":"ED STORE CHARAL","Salesman":"UNNI","Phone":"9744583797"},{"Customer":"HASSANAR KADATHUMKADAV","Salesman":"UNNI","Phone":"7559864126"},{"Customer":"HOTEL KUNJOOS","Salesman":"UNNI","Phone":"9656710167"},{"Customer":"HOTEL ST MARYS CHARAL (OLD KL)","Salesman":"UNNI","Phone":""},{"Customer":"HOTEL VANITHA ","Salesman":"UNNI","Phone":"9544596792"},{"Customer":"JR STORE","Salesman":"UNNI","Phone":"9747069028"},{"Customer":"KERALA STORE KOOMANTHOD","Salesman":"UNNI","Phone":"9400820130"},{"Customer":"KUTTANS ULIKKAL","Salesman":"UNNI","Phone":"7907351077"}];
+             const defaultItems = (()=>{ const items = [{"Department":"FOOD","Category":"CHOCOLATES&CANDY","Code":101529,"ItemName":"4 SMILE BUBBLE GUM","CostRate":"99.91","Mrp":"150","Price1":"145","Price2":"115","Price3":"145","Margin1":"5","Margin2":"15.1","Margin3":"5"},{"Department":"REPACK","Category":"RICE","Code":100716,"ItemName":"5 STAR PONNI KG","CostRate":"43.98","Mrp":"50","Price1":"46.39","Price2":"44.84","Price3":"44.8","Margin1":"5.48","Margin2":"1.96","Margin3":"1.86"}];
+             const sanitize = (val) => parseFloat(String(val).replace(/,/g, '')) || 0;
+             return items.map(i => ({...i, CostRate: sanitize(i.CostRate), Mrp: sanitize(i.Mrp), Price1: sanitize(i.Price1), Price2: sanitize(i.Price2), Price3: sanitize(i.Price3), Margin1: sanitize(i.Margin1), Margin2: sanitize(i.Margin2), Margin3: sanitize(i.Margin3)}));
+             })();
+            
+            const customerBatch = writeBatch(db);
+            defaultCustomers.forEach(cust => {
+                const docRef = doc(collection(db, "customers"));
+                customerBatch.set(docRef, cust);
+            });
+            await customerBatch.commit();
+            console.log("Default customers uploaded.");
+
+            const itemBatch = writeBatch(db);
+            defaultItems.forEach(item => {
+                const docRef = doc(db, "items", String(item.Code)); // Use Code as ID for items
+                itemBatch.set(docRef, item);
+            });
+            await itemBatch.commit();
+            console.log("Default items uploaded.");
+        };
+
+        const loadInitialData = async () => {
+            const customersQuery = query(collection(db, "customers"));
+            const customersSnapshot = await getDocs(customersQuery);
+            if (customersSnapshot.empty) {
+                console.log("Database is empty. Uploading default data...");
+                await uploadDefaultData();
+            }
+        };
+
+        const setupRealtimeListeners = () => {
+            onSnapshot(collection(db, "customers"), (snapshot) => {
+                appState.customers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderCurrentView();
+            });
+            onSnapshot(collection(db, "items"), (snapshot) => {
+                appState.items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            });
+            onSnapshot(query(collection(db, "orders")), (snapshot) => {
+                appState.orders = {};
+                snapshot.docs.forEach(doc => {
+                    const order = { id: doc.id, ...doc.data() };
+                    if (!appState.orders[order.salesman]) appState.orders[order.salesman] = [];
+                    appState.orders[order.salesman].push(order);
+                });
+            });
+            onSnapshot(query(collection(db, "payments")), (snapshot) => {
+                appState.payments = {};
+                snapshot.docs.forEach(doc => {
+                    const payment = { id: doc.id, ...doc.data() };
+                    if (!appState.payments[payment.salesman]) appState.payments[payment.salesman] = [];
+                    appState.payments[payment.salesman].push(payment);
+                });
+            });
+        };
+        
+        // --- UI Rendering ---
+        const showPage = (pageId) => { document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById(pageId).classList.add('active'); };
+        const formatCurrency = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }).format(v);
+
+        const renderCustomerList = (containerId, buttonText) => {
+            const container = document.getElementById(containerId);
+            const filtered = appState.customers.filter(c => c.Salesman && c.Salesman.toUpperCase() === appState.salesman);
+            if (filtered.length === 0) { container.innerHTML = `<div class="card" style="text-align: center;">No customers found for this salesman.</div>`; return; }
+            container.innerHTML = filtered.map(c => `<div class="list-item"><span class="info">${c.Customer}</span><button class="list-item-action" data-customer='${JSON.stringify(c)}'>${buttonText}</button></div>`).join('');
+        };
+
+        const renderHistory = (type) => {
+            const isOrder = type === 'orders';
+            const historyData = isOrder ? (appState.orders[appState.salesman] || []) : (appState.payments[appState.salesman] || []);
+            const container = document.getElementById(isOrder ? 'order-history-list' : 'payment-history-list');
+            if (historyData.length === 0) { container.innerHTML = `<p style="text-align:center; padding: 20px 0;">No history found.</p>`; return; }
+            container.innerHTML = [...historyData].sort((a,b) => new Date(b.date) - new Date(a.date)).map((item) => {
+                if (isOrder) {
+                    return `<div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <p><strong>Customer:</strong> ${item.customer.Customer}</p>
+                                <p><strong>Date:</strong> ${new Date(item.date).toLocaleString()}</p>
+                                <p><strong>Total:</strong> ${formatCurrency(item.total)}</p>
+                            </div>
+                            <div class="history-item-actions">
+                                <button class="delete-history-btn" data-type="orders" data-id="${item.id}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <details><summary style="cursor:pointer; margin-top:10px; color:var(--primary-color);">View Details</summary><ul style="list-style-position: inside; padding-top: 5px;">${(item.items || []).map(i => `<li>${i.item.ItemName} (Qty: ${i.quantity}, Price: ${formatCurrency(i.sellingPrice)})</li>`).join('')}</ul></details>
+                    </div>`;
+                } else {
+                    return `<div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <p><strong>Customer:</strong> ${item.customer.Customer}</p>
+                                <p><strong>Date:</strong> ${new Date(item.date).toLocaleString()}</p>
+                                <p><strong>Amount:</strong> ${formatCurrency(item.amount)}</p>
+                                <p><strong>Method:</strong> ${item.method}</p>
+                            </div>
+                            <div class="history-item-actions">
+                                <button class="delete-history-btn" data-type="payments" data-id="${item.id}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+            }).join('');
+        };
+        
+        const renderSelectedItemDetails = () => { const i = appState.selectedItem; if (!i) return; const calcMargin = (price) => i.CostRate > 0 ? (((price - i.CostRate) / i.CostRate) * 100).toFixed(2) : 0; document.getElementById('price1-option').innerHTML = `<div class="price">P1 ${formatCurrency(i.Price1)}</div><div class="margin">Margin: ${calcMargin(i.Price1)}%</div>`; document.getElementById('price2-option').innerHTML = `<div class="price">P2 ${formatCurrency(i.Price2)}</div><div class="margin">Margin: ${calcMargin(i.Price2)}%</div>`; document.getElementById('price3-option').innerHTML = `<div class="price">P3 ${formatCurrency(i.Price3)}</div><div class="margin">Margin: ${calcMargin(i.Price3)}%</div>`; document.getElementById('item-details-form').style.display = 'block'; };
+        const renderOrderSummary = () => { const listCont = document.getElementById('order-items-list'), totalCont = document.getElementById('order-grand-total'); let grandTotal = 0; if (appState.currentOrder.length === 0) { listCont.innerHTML = '<p style="text-align:center; padding: 20px 0;">No items added yet.</p>'; totalCont.style.display = 'none'; return; } listCont.innerHTML = appState.currentOrder.map((o, idx) => { const total = o.quantity * o.sellingPrice; grandTotal += total; return `<div class="order-item-card"><div class="item-info"><div class="item-name">${o.item.ItemName}</div><div class="item-details">${o.quantity} &times; ${formatCurrency(o.sellingPrice)}</div></div><div class="item-total">${formatCurrency(total)}</div><button class="delete-btn" data-index="${idx}">&times;</button></div>`; }).join(''); totalCont.textContent = `Grand Total: ${formatCurrency(grandTotal)}`; totalCont.style.display = 'block'; };
+        const renderItemSearchResults = (filter = '') => { const cont = document.getElementById('item-search-results'); if (!filter) { cont.innerHTML = ''; return; } cont.innerHTML = appState.items.filter(i => (i.ItemName || '').toLowerCase().includes(filter.toLowerCase())).slice(0, 50).map(i => `<div class="search-result-item" data-item-code="${i.Code}">${i.ItemName}</div>`).join(''); };
+        
+        document.getElementById('page-salesman-selection').addEventListener('click', (e) => { if (e.target.matches('.button')) { appState.salesman = e.target.dataset.salesman; localStorage.setItem('lastSalesman', appState.salesman); document.getElementById('main-view-header').textContent = `Order Taking`; renderCustomerList('customer-list-container', 'Take Order'); showPage('page-main-view'); } });
+        document.getElementById('logout-btn').addEventListener('click', () => { appState.salesman = null; localStorage.removeItem('lastSalesman'); showPage('page-salesman-selection'); });
+        document.getElementById('customer-list-container').addEventListener('click', (e) => { if (e.target.matches('.list-item-action')) { appState.customer = JSON.parse(e.target.dataset.customer); document.getElementById('order-customer-name').textContent = appState.customer.Customer; appState.currentOrder = []; renderOrderSummary(); showPage('page-order'); } });
+        
+        const customerView = document.getElementById('customer-view'), paymentView = document.getElementById('payment-view'), mainHeader = document.getElementById('main-view-header');
+        const renderCurrentView = () => { if (appState.currentView === 'orders') renderCustomerList('customer-list-container', 'Take Order'); else renderCustomerList('payment-customer-list-container', 'Collect'); };
+        document.querySelectorAll('.footer-button').forEach(btn => btn.addEventListener('click', (e) => {
+            const current = e.currentTarget;
+            document.querySelectorAll('.footer-button').forEach(b => b.classList.remove('active'));
+            current.classList.add('active');
+            customerView.style.display = 'none'; paymentView.style.display = 'none';
+            appState.currentView = current.id === 'orders-tab-btn' ? 'orders' : 'payments';
+            mainHeader.textContent = appState.currentView === 'orders' ? 'Order Taking' : 'Payments';
+            if (appState.currentView === 'orders') { customerView.style.display = 'block'; renderCustomerList('customer-list-container', 'Take Order'); } 
+            else { paymentView.style.display = 'block'; renderCustomerList('payment-customer-list-container', 'Collect'); }
+        }));
+        document.getElementById('history-icon-btn').addEventListener('click', () => {
+            if (appState.currentView === 'orders') { renderHistory('orders'); showPage('page-order-history'); } 
+            else { renderHistory('payments'); showPage('page-payment-history'); }
+        });
+        document.getElementById('settings-icon-btn').addEventListener('click', () => showPage('page-settings'));
+        document.querySelectorAll('#back-to-main-btn-order-history, #back-to-main-btn-payment-history, #back-to-main-btn-settings, #back-to-main-btn-payment, #back-to-customers-btn, #back-to-settings-btn').forEach(btn => btn.addEventListener('click', (e) => {
+            if (e.currentTarget.id === 'back-to-settings-btn') showPage('page-settings'); else showPage('page-main-view');
+        }));
+
+        document.getElementById('item-search-input').addEventListener('input', (e) => renderItemSearchResults(e.target.value));
+        document.getElementById('item-search-results').addEventListener('click', (e) => {
+            if (e.target.matches('.search-result-item')) {
+                const code = e.target.dataset.itemCode;
+                appState.selectedItem = appState.items.find(i => i.Code == code);
+                document.getElementById('item-search-input').value = appState.selectedItem.ItemName;
+                document.getElementById('item-search-results').innerHTML = '';
+                renderSelectedItemDetails();
+            }
+        });
+        document.querySelector('.price-options').addEventListener('click', e => {
+            const opt = e.target.closest('.price-option'); if (!opt) return;
+            document.querySelectorAll('.price-option').forEach(el => el.classList.remove('selected'));
+            opt.classList.add('selected'); appState.selectedPriceOption = opt.id;
+            const cIn = document.getElementById('custom-price-input'), cMar = document.getElementById('custom-price-margin');
+            cIn.style.display = (opt.id === 'custom-price-option') ? 'block' : 'none';
+            if (opt.id === 'custom-price-option') cIn.focus(); else cMar.textContent = '';
+        });
+        document.getElementById('custom-price-input').addEventListener('input', e => {
+            const price = parseFloat(e.target.value), cost = appState.selectedItem.CostRate, marginDisp = document.getElementById('custom-price-margin');
+            if (!isNaN(price) && cost > 0) { const margin = ((price - cost) / cost) * 100; marginDisp.textContent = `Margin: ${margin.toFixed(2)}%`; marginDisp.style.color = margin < 0 ? '#e63946' : '#2a9d8f'; } else { marginDisp.textContent = ''; }
+        });
+        document.getElementById('add-item-btn').addEventListener('click', () => {
+            const qty = parseInt(document.getElementById('item-quantity').value);
+            if (!appState.selectedItem || !appState.selectedPriceOption || isNaN(qty) || qty <= 0) { alert('Please select an item, price, and quantity.'); return; }
+            let price;
+            switch(appState.selectedPriceOption) {
+                case 'price1-option': price = appState.selectedItem.Price1; break;
+                case 'price2-option': price = appState.selectedItem.Price2; break;
+                case 'price3-option': price = appState.selectedItem.Price3; break;
+                case 'custom-price-option': price = parseFloat(document.getElementById('custom-price-input').value); if (isNaN(price) || price < 0) { alert('Invalid custom price.'); return; } break;
+            }
+            appState.currentOrder.push({ item: appState.selectedItem, quantity: qty, sellingPrice: price });
+            appState.selectedItem = null; appState.selectedPriceOption = null;
+            document.getElementById('item-search-input').value = ''; document.getElementById('item-quantity').value = '';
+            document.getElementById('item-details-form').style.display = 'none'; document.querySelectorAll('.price-option').forEach(el => el.classList.remove('selected'));
+            document.getElementById('custom-price-input').style.display = 'none'; document.getElementById('custom-price-input').value = ''; document.getElementById('custom-price-margin').textContent = '';
+            renderOrderSummary();
+        });
+        document.getElementById('order-items-list').addEventListener('click', e => { if (e.target.matches('.delete-btn')) { appState.currentOrder.splice(parseInt(e.target.dataset.index), 1); renderOrderSummary(); } });
+        
+        document.getElementById('confirm-order-btn').addEventListener('click', async () => {
+            if (appState.currentOrder.length === 0) { alert('Cannot confirm an empty order.'); return; }
+            const total = appState.currentOrder.reduce((s, i) => s + (i.quantity * i.sellingPrice), 0);
+            const newOrder = { 
+                customer: { Customer: appState.customer.Customer, Phone: appState.customer.Phone }, 
+                items: appState.currentOrder.map(i => ({ item: { ItemName: i.item.ItemName, Code: i.item.Code }, quantity: i.quantity, sellingPrice: i.sellingPrice })),
+                total: total, 
+                salesman: appState.salesman,
+                date: new Date().toISOString() 
+            };
+            const docRef = doc(collection(db, "orders"));
+            await setDoc(docRef, newOrder);
+            showShareModal('Order Saved!', 'Share the order summary with the customer.');
+            generateShareableImage('order-invoice');
+        });
+
+        document.getElementById('payment-customer-list-container').addEventListener('click', (e) => {
+            if (e.target.matches('.list-item-action')) {
+                appState.currentPayment.customer = JSON.parse(e.target.dataset.customer);
+                document.getElementById('payment-customer-name').textContent = `For ${appState.currentPayment.customer.Customer}`;
+                document.getElementById('payment-amount').value = '';
+                document.getElementById('confirm-payment-btn').style.display = 'block';
+                document.getElementById('print-receipt-btn').style.display = 'none';
+                showPage('page-payment');
+            }
+        });
+        document.querySelector('.payment-method-options').addEventListener('click', e => { if (e.target.matches('.payment-method-option')) { document.querySelectorAll('.payment-method-option').forEach(el => el.classList.remove('selected')); e.target.classList.add('selected'); } });
+        document.getElementById('confirm-payment-btn').addEventListener('click', async () => {
+            const amount = parseFloat(document.getElementById('payment-amount').value);
+            if (isNaN(amount) || amount <= 0) { alert('Please enter a valid amount.'); return; }
+            const method = document.querySelector('.payment-method-option.selected').dataset.method;
+            const newPayment = { 
+                customer: { Customer: appState.currentPayment.customer.Customer }, 
+                amount, method, salesman: appState.salesman,
+                date: new Date().toISOString() 
+            };
+            const docRef = doc(collection(db, "payments"));
+            await setDoc(docRef, newPayment);
+            appState.currentPayment = newPayment;
+            document.getElementById('confirm-payment-btn').style.display = 'none';
+            document.getElementById('print-receipt-btn').style.display = 'block';
+            alert('Payment saved!');
+        });
+        document.getElementById('print-receipt-btn').addEventListener('click', () => {
+            const p = appState.currentPayment;
+            document.getElementById('receipt-date').textContent = new Date(p.date).toLocaleString();
+            document.getElementById('receipt-salesman').textContent = appState.salesman;
+            document.getElementById('receipt-customer').textContent = p.customer.Customer;
+            document.getElementById('receipt-amount').textContent = formatCurrency(p.amount);
+            document.getElementById('receipt-method').textContent = p.method;
+            window.print();
+        });
+        
+        const shareModal = document.getElementById('share-modal');
+        const showShareModal = (title, text) => { document.getElementById('share-modal-title').textContent = title; document.getElementById('share-modal-text').textContent = text; shareModal.style.display = 'flex'; };
+        const closeShareModal = () => { shareModal.style.display = 'none'; document.getElementById('generated-image-container').innerHTML = '<div class="spinner"></div>'; document.getElementById('share-image-btn').style.display = 'none'; showPage('page-main-view'); };
+        document.getElementById('close-modal-btn').addEventListener('click', closeShareModal);
+        
+        const generateShareableImage = async (elementId) => {
+            if (elementId === 'order-invoice') {
+                document.getElementById('invoice-salesman').textContent = `Salesman: ${appState.salesman}`;
+                document.getElementById('invoice-customer').textContent = `Customer: ${appState.customer.Customer}`;
+                document.getElementById('invoice-date').textContent = `Date: ${new Date().toLocaleString()}`;
+                document.getElementById('invoice-table-body').innerHTML = appState.currentOrder.map(i => { const t = i.quantity * i.sellingPrice; return `<tr><td class="col-item-name">${i.item.ItemName}</td><td class="col-qty">${i.quantity}</td><td class="col-price">${i.sellingPrice.toFixed(2)}</td><td class="col-total">${t.toFixed(2)}</td></tr>`; }).join('');
+                document.getElementById('invoice-grand-total').textContent = `Total: ${formatCurrency(appState.currentOrder.reduce((s, i) => s + (i.quantity * i.sellingPrice), 0))}`;
+            }
+            try {
+                const canvas = await html2canvas(document.getElementById(elementId), { scale: 2 });
+                const imgCont = document.getElementById('generated-image-container');
+                imgCont.innerHTML = '';
+                const imgEl = document.createElement('img'); imgEl.src = canvas.toDataURL('image/jpeg', 0.9);
+                imgCont.appendChild(imgEl);
+                document.getElementById('share-image-btn').style.display = 'block';
+            } catch (error) { console.error("Img gen error:", error); document.getElementById('generated-image-container').innerHTML = '<p style="color:red;">Error generating image.</p>'; }
+        };
+        
+        document.getElementById('share-image-btn').addEventListener('click', async () => {
+            const isOrder = document.getElementById('share-modal-title').textContent.includes('Order');
+            const elementId = isOrder ? 'order-invoice' : 'collection-report';
+            const filename = isOrder ? 'order.jpg' : 'collection_report.jpg';
+            const canvas = await html2canvas(document.getElementById(elementId), { scale: 2 });
+            canvas.toBlob(async (blob) => {
+                try {
+                    const file = new File([blob], filename, { type: 'image/jpeg' });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({ files: [file], title: 'Order Summary' });
+                    } else { alert("Web Share not supported. You can long-press the image to save/share."); }
+                } catch (error) { console.error('Share failed:', error); alert("Could not share."); }
+            }, 'image/jpeg');
+        });
+
+        document.getElementById('share-collection-report-btn').addEventListener('click', () => {
+            const today = new Date().toLocaleDateString();
+            const paymentsToday = (appState.payments[appState.salesman] || []).filter(p => new Date(p.date).toLocaleDateString() === today);
+            if (paymentsToday.length === 0) { alert("No collections made today."); return; }
+            
+            let reportTotal = 0;
+            document.getElementById('report-salesman').textContent = `Salesman: ${appState.salesman}`;
+            document.getElementById('report-date').textContent = `Date: ${today}`;
+            document.getElementById('report-table-body').innerHTML = paymentsToday.map(p => { reportTotal += p.amount; return `<tr><td class="col-customer-name">${p.customer.Customer}</td><td class="col-method">${p.method}</td><td class="col-amount">${formatCurrency(p.amount)}</td></tr>`; }).join('');
+            document.getElementById('report-grand-total').textContent = `Total: ${formatCurrency(reportTotal)}`;
+            
+            showShareModal("Today's Report", "Share the daily collection summary.");
+            generateShareableImage('collection-report');
+        });
+
+        const handleDelete = async (e) => {
+            const btn = e.target.closest('.delete-history-btn');
+            if (!btn) return;
+            const type = btn.dataset.type;
+            const id = btn.dataset.id;
+            if (confirm('Are you sure you want to delete this entry? This cannot be undone.')) {
+                await deleteDoc(doc(db, type, id));
+                alert('Entry deleted.');
+            }
+        };
+        document.getElementById('order-history-list').addEventListener('click', handleDelete);
+        document.getElementById('payment-history-list').addEventListener('click', handleDelete);
+
+        const parseCSV = (csvText) => { try { const lines = csvText.trim().split(/\r\n|\n/); if (lines.length < 2) return []; const headers = lines[0].split(',').map(h => h.trim()); return lines.slice(1).map(line => { const values = line.match(/(".*?"|[^",\r\n]+)(?=\s*,|\s*$)/g) || []; const obj = {}; headers.forEach((header, i) => { let v = (values[i] || '').trim(); if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1); obj[header] = v; }); return obj; }); } catch (error) { console.error("Error parsing CSV:", error); return null; } };
+        const sanitizeItems = (items) => { const sanitize = (val) => parseFloat(String(val).replace(/,/g, '')) || 0; return items.map(i => ({...i, CostRate: sanitize(i.CostRate), Mrp: sanitize(i.Mrp), Price1: sanitize(i.Price1), Price2: sanitize(i.Price2), Price3: sanitize(i.Price3), Margin1: sanitize(i.Margin1), Margin2: sanitize(i.Margin2), Margin3: sanitize(i.Margin3)})); };
+        const uploadCSV = async (file, collectionName) => {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                let data = parseCSV(event.target.result);
+                if (data) {
+                    if (collectionName === 'items') data = sanitizeItems(data);
+                    try {
+                        const batch = writeBatch(db);
+                        data.forEach(item => {
+                            const docRef = collectionName === 'items' ? doc(db, collectionName, String(item.Code)) : doc(collection(db, collectionName));
+                            batch.set(docRef, item);
+                        });
+                        await batch.commit();
+                        alert(`${data.length} ${collectionName} loaded successfully.`);
+                    } catch (err) { alert('Error uploading to database.'); console.error(err); }
+                } else { alert(`Failed to parse ${collectionName} CSV.`); }
+            };
+            reader.readAsText(file);
+        };
+        document.getElementById('customer-file-upload').addEventListener('change', (e) => { uploadCSV(e.target.files[0], 'customers'); e.target.value = ''; });
+        document.getElementById('item-file-upload').addEventListener('change', (e) => { uploadCSV(e.target.files[0], 'items'); e.target.value = ''; });
+
+        const editModal = document.getElementById('edit-modal');
+        document.getElementById('edit-customers-btn').addEventListener('click', () => { appState.editing.type = 'customers'; showPage('page-edit-data'); renderEditDataList(); });
+        document.getElementById('edit-items-btn').addEventListener('click', () => { appState.editing.type = 'items'; showPage('page-edit-data'); renderEditDataList(); });
+        document.getElementById('edit-data-search').addEventListener('input', (e) => renderEditDataList(e.target.value));
+
+        const renderEditDataList = (filter = '') => {
+            const isCustomers = appState.editing.type === 'customers';
+            const data = isCustomers ? appState.customers : appState.items;
+            const container = document.getElementById('edit-data-list');
+            document.getElementById('edit-data-header').textContent = isCustomers ? 'Edit Customers' : 'Edit Items';
+            const filtered = data.filter(item => ((isCustomers ? item.Customer : item.ItemName) || '').toLowerCase().includes(filter.toLowerCase()));
+            container.innerHTML = filtered.map(item => `<div class="list-item"><span class="info">${isCustomers ? item.Customer : item.ItemName}</span><button class="list-item-action" data-id="${item.id}">Edit</button></div>`).join('');
+        };
+        
+        document.getElementById('edit-data-list').addEventListener('click', (e) => { if(e.target.matches('.list-item-action')) { appState.editing.id = e.target.dataset.id; openEditModal(); } });
+        const openEditModal = () => {
+            const isCustomers = appState.editing.type === 'customers';
+            const item = (isCustomers ? appState.customers : appState.items).find(i => i.id === appState.editing.id);
+            if (!item) return;
+            const modalBody = document.getElementById('edit-modal-body');
+            document.getElementById('edit-modal-title').textContent = `Edit ${isCustomers ? 'Customer' : 'Item'}`;
+            if (isCustomers) { modalBody.innerHTML = `<div class="form-group"><label>Customer Name</label><input type="text" id="edit-Customer" value="${item.Customer}"></div><div class="form-group"><label>Salesman</label><select id="edit-Salesman"><option>UNNI</option><option>RIYAS</option></select></div><div class="form-group"><label>Phone</label><input type="text" id="edit-Phone" value="${item.Phone || ''}"></div>`; document.getElementById('edit-Salesman').value = item.Salesman; } 
+            else { modalBody.innerHTML = `<div class="form-group"><label>Item Name</label><input type="text" id="edit-ItemName" value="${item.ItemName}"></div><div class="form-group"><label>Cost Rate</label><input type="number" id="edit-CostRate" value="${item.CostRate}"></div><div class="form-group"><label>Price 1</label><input type="number" id="edit-Price1" value="${item.Price1}"></div><div class="form-group"><label>Price 2</label><input type="number" id="edit-Price2" value="${item.Price2}"></div><div class="form-group"><label>Price 3</label><input type="number" id="edit-Price3" value="${item.Price3}"></div>`; }
+            editModal.style.display = 'flex';
+        };
+        const closeEditModal = () => { editModal.style.display = 'none'; };
+        document.getElementById('close-edit-modal-btn').addEventListener('click', closeEditModal);
+        document.getElementById('save-edit-btn').addEventListener('click', async () => {
+            const isCustomers = appState.editing.type === 'customers';
+            const id = appState.editing.id;
+            let updatedData = {};
+            if (isCustomers) {
+                updatedData = { Customer: document.getElementById('edit-Customer').value, Salesman: document.getElementById('edit-Salesman').value, Phone: document.getElementById('edit-Phone').value };
+            } else {
+                const fields = ['ItemName', 'CostRate', 'Price1', 'Price2', 'Price3'];
+                fields.forEach(field => { const input = document.getElementById(`edit-${field}`); updatedData[field] = input.type === 'number' ? parseFloat(input.value) : input.value; });
+            }
+            await updateDoc(doc(db, isCustomers ? 'customers' : 'items', id), updatedData);
+            closeEditModal();
+            alert('Record updated successfully!');
+        });
+
+        const setupPWA = () => {
+            const manifest = { "name": "MF BigMarket Orders", "short_name": "BigMarket", "start_url": ".", "display": "standalone", "background_color": "#e0f7fa", "theme_color": "#005f73", "description": "An order and payment management app.", "icons": [ { "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIiB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiI+PGNpcmNsZSBjeD0iOTYiIGN5PSI5NiIgcj0iOTYiIGZpbGw9IiMwMDVmNzMiLz48dGV4dCB4PSI5NiIgeT0iMTQwIiBmb250LXNpemU9IjkwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmYiPkJNPC90ZXh0Pjwvc3ZnPg==", "sizes": "192x192", "type": "image/svg+xml" }, { "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIyNTYiIGZpbGw9IiMwMDVmNzMiLz48dGV4dCB4PSIyNTYiIHk9IjM2MiIgZm9udC1zaXplPSIyNDAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2ZmZiI+Qk08L3RleHQ+PC9zdmc+", "sizes": "512x512", "type": "image/svg+xml" } ] };
+            const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(manifestBlob);
+            const linkEl = document.createElement('link'); linkEl.rel = 'manifest'; linkEl.href = manifestURL;
+            document.head.appendChild(linkEl);
+
+            if ('serviceWorker' in navigator && !location.href.startsWith('file')) {
+                const swCode = `const CACHE_NAME = 'bigmarket-pwa-v2'; const URLS_TO_CACHE = ['.', 'index.html']; self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(URLS_TO_CACHE))); }); self.addEventListener('fetch', e => { e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))); });`;
+                const swBlob = new Blob([swCode], { type: 'application/javascript' });
+                const swURL = URL.createObjectURL(swBlob);
+                window.addEventListener('load', () => { navigator.serviceWorker.register(swURL).then(reg => console.log('SW registered.')).catch(err => console.log('SW registration failed: ', err)); });
+            }
+        };
+
+        setupPWA();
+        loadInitialData(); 
+        setupRealtimeListeners(); 
+    });
+</script>
+</body>
+</html>
