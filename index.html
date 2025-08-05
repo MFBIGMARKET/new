@@ -15,7 +15,7 @@
     <!-- FIREBASE SDKs -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-      import { getFirestore, initializeFirestore, persistentLocalCache, getDocs, collection, doc, setDoc, onSnapshot, deleteDoc, writeBatch, query, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+      import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getDocs, collection, doc, setDoc, onSnapshot, deleteDoc, writeBatch, query, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
       
       const firebaseConfig = {
         apiKey: "AIzaSyDdECOGyNKFsKtWDiArUPp0DVd_bN0BjAY",
@@ -29,11 +29,12 @@
       const app = initializeApp(firebaseConfig);
       
       const db = initializeFirestore(app, {
-          localCache: persistentLocalCache()
+          localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
       });
 
       window.firebaseDB = db;
       window.firebaseTools = { getDocs, collection, doc, setDoc, onSnapshot, deleteDoc, writeBatch, query, updateDoc };
+
     </script>
     
     <style>
@@ -48,6 +49,7 @@
             --card-shadow: 0 4px 15px rgba(0, 95, 115, 0.1);
             --border-radius: 12px;
             --danger-color: #e63946;
+            --success-color: #2a9d8f;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -61,7 +63,7 @@
         .header .icon-button:active { background-color: rgba(255, 255, 255, 0.15); }
         .header .header-actions { display: flex; align-items: center; gap: 15px; }
 
-        .content { flex-grow: 1; overflow-y: auto; padding: 20px; }
+        .content { flex-grow: 1; overflow-y: auto; padding: 15px; }
         .footer { display: flex; justify-content: space-around; background-color: #fff; box-shadow: 0 -2px 8px rgba(0,0,0,0.1); padding: 5px 0 10px 0; flex-shrink: 0; }
         .footer-button { background: none; border: none; color: #888; display: flex; flex-direction: column; align-items: center; font-size: 0.8rem; cursor: pointer; padding: 5px 15px; border-radius: var(--border-radius); transition: color 0.2s; }
         .footer-button.active { color: var(--secondary-color); font-weight: 600; }
@@ -79,9 +81,9 @@
         input[type="text"], input[type="number"], input[type="file"], .form-group select { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 12px; transition: border-color 0.2s, box-shadow 0.2s; }
         input:focus, .form-group select:focus { outline: none; border-color: var(--secondary-color); box-shadow: 0 0 0 2px rgba(10, 147, 150, 0.2); }
         
-        .search-bar { position: relative; margin-bottom: 20px; }
+        .search-bar { position: relative; margin-bottom: 15px; }
         .search-bar input { padding-left: 40px; border-radius: 50px; }
-        .search-bar svg { position: absolute; left: 15px; top: 13px; color: #999; }
+        .search-bar svg { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; width: 20px; height: 20px; }
 
         .list-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background-color: #fff; border-radius: var(--border-radius); margin-bottom: 12px; box-shadow: var(--card-shadow); transition: transform 0.2s ease, box-shadow 0.2s; }
         .list-item:active { transform: scale(0.99); box-shadow: 0 2px 8px rgba(0, 95, 115, 0.1); }
@@ -154,6 +156,7 @@
         .invoice-table th.col-qty, .invoice-table th.col-price, .invoice-table th.col-total, .report-table th.col-method, .report-table th.col-amount,
         .invoice-table td.col-qty, .invoice-table td.col-price, .invoice-table td.col-total, .report-table td.col-method, .report-table td.col-amount { text-align: right; }
         .invoice-footer, .report-footer { margin-top: 25px; padding-top: 15px; text-align: right; }
+        .report-footer div { margin-top: 5px; }
         .invoice-footer .grand-total, .report-footer .grand-total { font-size: 1.5rem; font-weight: bold; color: var(--primary-color); }
         
         #payment-receipt-wrapper { display: none; }
@@ -171,6 +174,162 @@
         .receipt-amount .amount-value { font-size: 2.5rem; font-weight: bold; color: black; }
         .receipt-footer { text-align: center; margin-top: 30px; font-size: 0.9rem; color: #777; border-top: 1px dashed #ccc; padding-top: 15px;}
         
+        /* --- ADMIN DASHBOARD & REPORT STYLES (REFINED) --- */
+        .dashboard-grid {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: 1fr;
+        }
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2 columns for mobile */
+            gap: 15px;
+        }
+        .kpi-card-small {
+            background-color: #fff;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            padding: 15px;
+            text-align: center;
+        }
+        .kpi-card-small .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            line-height: 1.2;
+        }
+        .kpi-card-small .label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .data-list-card {
+            background-color: #fff;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .data-list-card h3 {
+            color: var(--primary-color);
+            margin: 0 0 15px 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            font-size: 1.2rem;
+        }
+        .data-list-container, .payment-summary-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .data-list-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .data-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 5px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .data-list-item:hover {
+            background-color: var(--light-bg);
+        }
+        .data-list-item:last-child {
+            border-bottom: none;
+        }
+        .data-list-item .item-main {
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0; /* KEY FIX for horizontal scroll */
+        }
+        .data-list-item .item-details {
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .item-details .value-primary {
+            font-weight: 600;
+            color: var(--text-color);
+            display: block;
+            font-size: 1rem;
+        }
+        .item-details .value-secondary {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        .item-details .value-secondary .profit, .item-details .value-secondary .loss {
+            color: var(--success-color);
+            font-weight: 500;
+        }
+        .item-details .value-secondary .loss { color: var(--danger-color); }
+        .profit { color: var(--success-color); }
+        .loss { color: var(--danger-color); }
+        #page-salesman-report .content, #page-customer-report .content { padding-top: 10px; }
+        .report-table { width: 100%; border-collapse: collapse; }
+        .report-table th, .report-table td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        .report-table th { font-weight: 600; background-color: #f8f9fa; }
+        .report-table td.numeric, .report-table th.numeric { text-align: right; }
+        
+        .report-header-card {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            padding: 0;
+            background-color: transparent;
+            border-radius: 0;
+            margin-bottom: 20px;
+            box-shadow: none;
+        }
+        .report-header-card > div {
+            background-color: #fff;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            padding: 15px;
+            text-align: center;
+        }
+        .report-header-card > div > .label { font-size: 0.8rem; color: #6c757d; }
+        .report-header-card > div > .value { font-size: 1.2rem; font-weight: 700; color: var(--primary-color); }
+        
+        .payment-summary-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 5px;
+            font-size: 1rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .payment-summary-list li:last-child { border-bottom: none; }
+        .payment-summary-list li strong { color: var(--primary-color); }
+        .payment-summary-list .salesman-header {
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-top: 15px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .payment-summary-list .salesman-breakdown li {
+             padding-left: 20px;
+             font-size: 0.9rem;
+        }
+         .payment-summary-list .salesman-breakdown li:last-child {
+            font-weight: bold;
+         }
+
+        @media (min-width: 768px) {
+            .kpi-row {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            .report-header-card > div > .label { font-size: 0.9rem; }
+            .report-header-card > div > .value { font-size: 1.5rem; }
+        }
+        /* End of Admin Styles */
+
         @media print {
             @page { margin: 0; }
             body { -webkit-print-color-adjust: exact; }
@@ -184,9 +343,10 @@
 
     <div id="page-salesman-selection" class="page active">
         <div class="content">
-            <h1>Select Salesman</h1>
+            <h1>Select Role</h1>
             <button class="button" data-salesman="UNNI">UNNI</button>
             <button class="button" data-salesman="RIYAS">RIYAS</button>
+            <button class="button button-accent" data-salesman="ADMIN" style="margin-top: 40px;">ADMIN</button>
         </div>
     </div>
 
@@ -207,13 +367,21 @@
         </div>
         <div class="content">
             <div id="customer-view">
+                <div class="search-bar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" id="customer-search-input" placeholder="Search customers...">
+                </div>
                 <div id="customer-list-container"></div>
             </div>
             <div id="payment-view" style="display:none;">
+                <div class="search-bar">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" id="payment-customer-search-input" placeholder="Search customers...">
+                </div>
                 <div id="payment-customer-list-container"></div>
             </div>
         </div>
-        <div class="footer">
+        <div id="footer" class="footer">
             <button class="footer-button active" id="orders-tab-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 2H8.6c-.4 0-.8.2-1.1.5-.3.3-.5.7-.5 1.1V21c0 .6.4 1 1 1h12c.6 0 1-.4 1-1V6.5L15.5 2z"></path><path d="M15 2v5h5"></path></svg>
                 <span>Orders</span>
@@ -282,7 +450,7 @@
 
     <div id="page-settings" class="page">
         <div class="header">
-            <button class="icon-button" id="back-to-main-btn-settings">
+            <button class="icon-button" id="back-from-settings-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             </button>
             <h1>Manage Data</h1>
@@ -335,10 +503,54 @@
         </div>
     </div>
 
+    <div id="page-admin-dashboard" class="page">
+        <div class="header">
+            <button class="icon-button" id="admin-logout-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+            </button>
+            <h1>Admin Dashboard</h1>
+            <div class="header-actions">
+                 <button class="icon-button" id="admin-settings-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </button>
+            </div>
+        </div>
+        <div class="content" id="admin-dashboard-content">
+            <!-- New modernized dashboard content will be rendered here by JS -->
+        </div>
+    </div>
+
+    <div id="page-salesman-report" class="page">
+        <div class="header">
+            <button class="icon-button" id="back-to-admin-dashboard-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <h1 id="salesman-report-header">Salesman Report</h1>
+            <div class="icon-button" style="width: 24px;"></div>
+        </div>
+        <div class="content" id="salesman-report-content">
+            <!-- Salesman-specific customer list will be rendered here -->
+        </div>
+    </div>
+
+    <div id="page-customer-report" class="page">
+        <div class="header">
+            <button class="icon-button" id="back-to-salesman-report-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <h1 id="customer-report-header">Customer Report</h1>
+            <div class="icon-button" style="width: 24px;"></div>
+        </div>
+        <div class="content" id="customer-report-content">
+            <!-- Customer-specific item list will be rendered here -->
+        </div>
+    </div>
+
+
     <!-- Hidden elements for generation -->
     <div id="order-invoice-wrapper"><div id="order-invoice"><div class="invoice-header"><h2 >ORDER SUMMARY</h2><p id="invoice-salesman"></p></div><div class="invoice-details"><div id="invoice-customer"></div><div id="invoice-date"></div></div><table class="invoice-table"><thead><tr><th>ITEM</th><th class="col-qty">QTY</th><th class="col-price">PRICE</th><th class="col-total">TOTAL</th></tr></thead><tbody id="invoice-table-body"></tbody></table><div class="invoice-footer"><div class="grand-total" id="invoice-grand-total"></div></div></div></div>
     <div id="payment-receipt-wrapper"><div class="receipt-container"><div class="receipt-header"><h2>MF BIGMARKET</h2><p>Payment Receipt</p></div><div class="receipt-details"><p><strong>Date:</strong><span id="receipt-date"></span></p><p><strong>Salesman:</strong><span id="receipt-salesman"></span></p><p><strong>Customer:</strong><span id="receipt-customer"></span></p><p><strong>Pay Method:</strong><span id="receipt-method"></span></p></div><div class="receipt-amount"><div class="amount-label">Amount Received</div><div class="amount-value" id="receipt-amount"></div></div><div class="receipt-footer">Thank you for your business!</div></div></div>
-    <div id="collection-report-wrapper"><div id="collection-report"><div class="report-header"><h2>MF BIGMARKET</h2><p>Daily Collection Report</p></div><div class="report-details"><div id="report-salesman"></div><div id="report-date"></div></div><table class="report-table"><thead><tr><th>CUSTOMER</th><th class="col-method">METHOD</th><th class="col-amount">AMOUNT</th></tr></thead><tbody id="report-table-body"></tbody></table><div class="report-footer"><div class="grand-total" id="report-grand-total"></div></div></div></div>
+    <div id="collection-report-wrapper"><div id="collection-report"><div class="report-header"><h2>MF BIGMARKET</h2><p>Daily Collection Report</p></div><div class="report-details"><div id="report-salesman"></div><div id="report-date"></div></div><table class="report-table"><thead><tr><th>CUSTOMER</th><th class="col-method">MODE</th><th class="col-amount">AMOUNT</th></tr></thead><tbody id="report-table-body"></tbody></table><div class="report-footer"><div id="report-totals"></div><div class="grand-total" id="report-grand-total"></div></div></div></div>
     <div id="share-modal" class="modal"><div class="modal-content"><h2 id="share-modal-title">Order Saved!</h2><p id="share-modal-text">Share the order summary with the customer.</p><div id="generated-image-container"><div class="spinner"></div></div><div class="modal-footer"><button class="button button-outline" id="close-modal-btn">Close</button><button class="button button-accent" id="share-image-btn" style="display:none;">Send as JPG</button></div></div></div>
     <div id="edit-modal" class="modal"><div class="modal-content"><h2 id="edit-modal-title">Edit</h2><div class="modal-body" id="edit-modal-body"></div><div class="modal-footer"><button class="button button-outline" id="close-edit-modal-btn">Cancel</button><button class="button" id="save-edit-btn">Save Changes</button></div></div></div>
 
@@ -354,13 +566,13 @@
         let appState = {
             salesman: null, customer: null, items: [], customers: [],
             orders: {}, payments: {}, currentOrder: [], selectedItem: null, selectedPriceOption: null,
-            currentPayment: {}, currentView: 'orders', editing: { type: null, id: null }
+            currentPayment: {}, currentView: 'orders', editing: { type: null, id: null },
+            reporting: { salesman: null, customer: null } // State for admin reports
         };
 
         const { getDocs, collection, doc, setDoc, onSnapshot, deleteDoc, writeBatch, query, updateDoc } = window.firebaseTools;
         const db = window.firebaseDB;
 
-        // --- Data Management ---
         const uploadDefaultData = async () => {
              const defaultCustomers = [{"Customer":"7 DAYS ULIKKAL","Salesman":"UNNI","Phone":"8848416934"},{"Customer":"ALEEF PERINKARI","Salesman":"UNNI","Phone":"7306136240"},{"Customer":"AMMUTTY URUPPUMKUTTY","Salesman":"UNNI","Phone":"9544668088"},{"Customer":"ANGEL STORE CHARAL","Salesman":"UNNI","Phone":"8921422120"},{"Customer":"APPOLLO KALLUVAYAL","Salesman":"UNNI","Phone":"9947880030"},{"Customer":"CT VILAMANA","Salesman":"UNNI","Phone":"9961065723"},{"Customer":"DEVARAJAN VILAMANA","Salesman":"UNNI","Phone":"9747201238"},{"Customer":"EASSA PERINKIRI","Salesman":"UNNI","Phone":"7736824614"},{"Customer":"ED STORE CHARAL","Salesman":"UNNI","Phone":"9744583797"},{"Customer":"HASSANAR KADATHUMKADAV","Salesman":"UNNI","Phone":"7559864126"},{"Customer":"HOTEL KUNJOOS","Salesman":"UNNI","Phone":"9656710167"},{"Customer":"HOTEL ST MARYS CHARAL (OLD KL)","Salesman":"UNNI","Phone":""},{"Customer":"HOTEL VANITHA ","Salesman":"UNNI","Phone":"9544596792"},{"Customer":"JR STORE","Salesman":"UNNI","Phone":"9747069028"},{"Customer":"KERALA STORE KOOMANTHOD","Salesman":"UNNI","Phone":"9400820130"},{"Customer":"KUTTANS ULIKKAL","Salesman":"UNNI","Phone":"7907351077"}];
              const defaultItems = (()=>{ const items = [{"Department":"FOOD","Category":"CHOCOLATES&CANDY","Code":101529,"ItemName":"4 SMILE BUBBLE GUM","CostRate":"99.91","Mrp":"150","Price1":"145","Price2":"115","Price3":"145","Margin1":"5","Margin2":"15.1","Margin3":"5"},{"Department":"REPACK","Category":"RICE","Code":100716,"ItemName":"5 STAR PONNI KG","CostRate":"43.98","Mrp":"50","Price1":"46.39","Price2":"44.84","Price3":"44.8","Margin1":"5.48","Margin2":"1.96","Margin3":"1.86"}];
@@ -378,7 +590,7 @@
 
             const itemBatch = writeBatch(db);
             defaultItems.forEach(item => {
-                const docRef = doc(db, "items", String(item.Code)); // Use Code as ID for items
+                const docRef = doc(db, "items", String(item.Code));
                 itemBatch.set(docRef, item);
             });
             await itemBatch.commit();
@@ -393,44 +605,52 @@
                 await uploadDefaultData();
             }
         };
-
-        const setupRealtimeListeners = () => {
-            onSnapshot(collection(db, "customers"), (snapshot) => {
-                appState.customers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderCurrentView();
-            });
-            onSnapshot(collection(db, "items"), (snapshot) => {
-                appState.items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            });
-            onSnapshot(query(collection(db, "orders")), (snapshot) => {
-                appState.orders = {};
-                snapshot.docs.forEach(doc => {
-                    const order = { id: doc.id, ...doc.data() };
-                    if (!appState.orders[order.salesman]) appState.orders[order.salesman] = [];
-                    appState.orders[order.salesman].push(order);
-                });
-            });
-            onSnapshot(query(collection(db, "payments")), (snapshot) => {
-                appState.payments = {};
-                snapshot.docs.forEach(doc => {
-                    const payment = { id: doc.id, ...doc.data() };
-                    if (!appState.payments[payment.salesman]) appState.payments[payment.salesman] = [];
-                    appState.payments[payment.salesman].push(payment);
-                });
-            });
-        };
-        
-        // --- UI Rendering ---
+       
         const showPage = (pageId) => { document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById(pageId).classList.add('active'); };
         const formatCurrency = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }).format(v);
-
-        const renderCustomerList = (containerId, buttonText) => {
-            const container = document.getElementById(containerId);
-            const filtered = appState.customers.filter(c => c.Salesman && c.Salesman.toUpperCase() === appState.salesman);
-            if (filtered.length === 0) { container.innerHTML = `<div class="card" style="text-align: center;">No customers found for this salesman.</div>`; return; }
-            container.innerHTML = filtered.map(c => `<div class="list-item"><span class="info">${c.Customer}</span><button class="list-item-action" data-customer='${JSON.stringify(c)}'>${buttonText}</button></div>`).join('');
+        
+        const setupRealtimeListeners = () => {
+            onSnapshot(collection(db, "customers"), (snapshot) => { 
+                appState.customers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
+                if(appState.salesman !== 'ADMIN') renderCurrentView();
+            });
+            onSnapshot(collection(db, "items"), (snapshot) => { 
+                appState.items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
+                if (appState.salesman === 'ADMIN' && document.getElementById('page-admin-dashboard').classList.contains('active')) {
+                   renderAdminDashboard();
+                }
+            });
+            onSnapshot(query(collection(db, "orders")), (snapshot) => { 
+                appState.orders = {}; 
+                snapshot.docs.forEach(doc => { const order = { id: doc.id, ...doc.data() }; if (!appState.orders[order.salesman]) appState.orders[order.salesman] = []; appState.orders[order.salesman].push(order); }); 
+                if (appState.salesman === 'ADMIN' && document.getElementById('page-admin-dashboard').classList.contains('active')) {
+                    renderAdminDashboard();
+                }
+            });
+            onSnapshot(query(collection(db, "payments")), (snapshot) => { 
+                appState.payments = {}; 
+                snapshot.docs.forEach(doc => { const payment = { id: doc.id, ...doc.data() }; if (!appState.payments[payment.salesman]) appState.payments[payment.salesman] = []; appState.payments[payment.salesman].push(payment); });
+                if (appState.salesman === 'ADMIN' && document.getElementById('page-admin-dashboard').classList.contains('active')) {
+                    renderAdminDashboard();
+                }
+            });
         };
-
+        const renderCustomerList = (containerId, buttonText, filter = '') => {
+            const container = document.getElementById(containerId);
+            const lowercasedFilter = filter.toLowerCase();
+            const filteredCustomers = appState.customers.filter(c => 
+                c.Salesman && c.Salesman.toUpperCase() === appState.salesman && 
+                (c.Customer || '').toLowerCase().includes(lowercasedFilter)
+            );
+            if (filteredCustomers.length === 0) {
+                container.innerHTML = `<div class="card" style="text-align: center;">No customers found.</div>`;
+                return;
+            }
+            container.innerHTML = filteredCustomers.map(c => `<div class="list-item"><span class="info">${c.Customer}</span><button class="list-item-action" data-customer='${JSON.stringify(c)}'>${buttonText}</button></div>`).join('');
+        };
+        const renderItemSearchResults = (filter = '') => { const cont = document.getElementById('item-search-results'); if (!filter) { cont.innerHTML = ''; return; } cont.innerHTML = appState.items.filter(i => (i.ItemName || '').toLowerCase().includes(filter.toLowerCase())).slice(0, 50).map(i => `<div class="search-result-item" data-item-code="${i.Code}">${i.ItemName}</div>`).join(''); };
+        const renderSelectedItemDetails = () => { const i = appState.selectedItem; if (!i) return; const calcMargin = (price) => i.CostRate > 0 ? (((price - i.CostRate) / i.CostRate) * 100).toFixed(2) : 0; document.getElementById('price1-option').innerHTML = `<div class="price">P1 ${formatCurrency(i.Price1)}</div><div class="margin">Margin: ${calcMargin(i.Price1)}%</div>`; document.getElementById('price2-option').innerHTML = `<div class="price">P2 ${formatCurrency(i.Price2)}</div><div class="margin">Margin: ${calcMargin(i.Price2)}%</div>`; document.getElementById('price3-option').innerHTML = `<div class="price">P3 ${formatCurrency(i.Price3)}</div><div class="margin">Margin: ${calcMargin(i.Price3)}%</div>`; document.getElementById('item-details-form').style.display = 'block'; };
+        const renderOrderSummary = () => { const listCont = document.getElementById('order-items-list'), totalCont = document.getElementById('order-grand-total'); let grandTotal = 0; if (appState.currentOrder.length === 0) { listCont.innerHTML = '<p style="text-align:center; padding: 20px 0;">No items added yet.</p>'; totalCont.style.display = 'none'; return; } listCont.innerHTML = appState.currentOrder.map((o, idx) => { const total = o.quantity * o.sellingPrice; grandTotal += total; return `<div class="order-item-card"><div class="item-info"><div class="item-name">${o.item.ItemName}</div><div class="item-details">${o.quantity} &times; ${formatCurrency(o.sellingPrice)}</div></div><div class="item-total">${formatCurrency(total)}</div><button class="delete-btn" data-index="${idx}">&times;</button></div>`; }).join(''); totalCont.textContent = `Grand Total: ${formatCurrency(grandTotal)}`; totalCont.style.display = 'block'; };
         const renderHistory = (type) => {
             const isOrder = type === 'orders';
             const historyData = isOrder ? (appState.orders[appState.salesman] || []) : (appState.payments[appState.salesman] || []);
@@ -438,51 +658,343 @@
             if (historyData.length === 0) { container.innerHTML = `<p style="text-align:center; padding: 20px 0;">No history found.</p>`; return; }
             container.innerHTML = [...historyData].sort((a,b) => new Date(b.date) - new Date(a.date)).map((item) => {
                 if (isOrder) {
-                    return `<div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
-                                <p><strong>Customer:</strong> ${item.customer.Customer}</p>
-                                <p><strong>Date:</strong> ${new Date(item.date).toLocaleString()}</p>
-                                <p><strong>Total:</strong> ${formatCurrency(item.total)}</p>
-                            </div>
-                            <div class="history-item-actions">
-                                <button class="delete-history-btn" data-type="orders" data-id="${item.id}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                </button>
-                            </div>
-                        </div>
-                        <details><summary style="cursor:pointer; margin-top:10px; color:var(--primary-color);">View Details</summary><ul style="list-style-position: inside; padding-top: 5px;">${(item.items || []).map(i => `<li>${i.item.ItemName} (Qty: ${i.quantity}, Price: ${formatCurrency(i.sellingPrice)})</li>`).join('')}</ul></details>
-                    </div>`;
+                    return `<div class="card"><div style="display: flex; justify-content: space-between; align-items: flex-start;"><div><p><strong>Customer:</strong> ${item.customer.Customer}</p><p><strong>Date:</strong> ${new Date(item.date).toLocaleString()}</p><p><strong>Total:</strong> ${formatCurrency(item.total)}</p></div><div class="history-item-actions"><button class="delete-history-btn" data-type="orders" data-id="${item.id}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div></div><details><summary style="cursor:pointer; margin-top:10px; color:var(--primary-color);">View Details</summary><ul style="list-style-position: inside; padding-top: 5px;">${(item.items || []).map(i => `<li>${i.item.ItemName} (Qty: ${i.quantity}, Price: ${formatCurrency(i.sellingPrice)})</li>`).join('')}</ul></details></div>`;
                 } else {
-                    return `<div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
-                                <p><strong>Customer:</strong> ${item.customer.Customer}</p>
-                                <p><strong>Date:</strong> ${new Date(item.date).toLocaleString()}</p>
-                                <p><strong>Amount:</strong> ${formatCurrency(item.amount)}</p>
-                                <p><strong>Method:</strong> ${item.method}</p>
-                            </div>
-                            <div class="history-item-actions">
-                                <button class="delete-history-btn" data-type="payments" data-id="${item.id}">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>`;
+                    return `<div class="card"><div style="display: flex; justify-content: space-between; align-items: flex-start;"><div><p><strong>Customer:</strong> ${item.customer.Customer}</p><p><strong>Date:</strong> ${new Date(item.date).toLocaleString()}</p><p><strong>Amount:</strong> ${formatCurrency(item.amount)}</p><p><strong>Method:</strong> ${item.method}</p></div><div class="history-item-actions"><button class="delete-history-btn" data-type="payments" data-id="${item.id}"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div></div></div>`;
                 }
             }).join('');
         };
         
-        const renderSelectedItemDetails = () => { const i = appState.selectedItem; if (!i) return; const calcMargin = (price) => i.CostRate > 0 ? (((price - i.CostRate) / i.CostRate) * 100).toFixed(2) : 0; document.getElementById('price1-option').innerHTML = `<div class="price">P1 ${formatCurrency(i.Price1)}</div><div class="margin">Margin: ${calcMargin(i.Price1)}%</div>`; document.getElementById('price2-option').innerHTML = `<div class="price">P2 ${formatCurrency(i.Price2)}</div><div class="margin">Margin: ${calcMargin(i.Price2)}%</div>`; document.getElementById('price3-option').innerHTML = `<div class="price">P3 ${formatCurrency(i.Price3)}</div><div class="margin">Margin: ${calcMargin(i.Price3)}%</div>`; document.getElementById('item-details-form').style.display = 'block'; };
-        const renderOrderSummary = () => { const listCont = document.getElementById('order-items-list'), totalCont = document.getElementById('order-grand-total'); let grandTotal = 0; if (appState.currentOrder.length === 0) { listCont.innerHTML = '<p style="text-align:center; padding: 20px 0;">No items added yet.</p>'; totalCont.style.display = 'none'; return; } listCont.innerHTML = appState.currentOrder.map((o, idx) => { const total = o.quantity * o.sellingPrice; grandTotal += total; return `<div class="order-item-card"><div class="item-info"><div class="item-name">${o.item.ItemName}</div><div class="item-details">${o.quantity} &times; ${formatCurrency(o.sellingPrice)}</div></div><div class="item-total">${formatCurrency(total)}</div><button class="delete-btn" data-index="${idx}">&times;</button></div>`; }).join(''); totalCont.textContent = `Grand Total: ${formatCurrency(grandTotal)}`; totalCont.style.display = 'block'; };
-        const renderItemSearchResults = (filter = '') => { const cont = document.getElementById('item-search-results'); if (!filter) { cont.innerHTML = ''; return; } cont.innerHTML = appState.items.filter(i => (i.ItemName || '').toLowerCase().includes(filter.toLowerCase())).slice(0, 50).map(i => `<div class="search-result-item" data-item-code="${i.Code}">${i.ItemName}</div>`).join(''); };
+        // --- ADMIN DASHBOARD & REPORTING LOGIC ---
         
-        document.getElementById('page-salesman-selection').addEventListener('click', (e) => { if (e.target.matches('.button')) { appState.salesman = e.target.dataset.salesman; localStorage.setItem('lastSalesman', appState.salesman); document.getElementById('main-view-header').textContent = `Order Taking`; renderCustomerList('customer-list-container', 'Take Order'); showPage('page-main-view'); } });
-        document.getElementById('logout-btn').addEventListener('click', () => { appState.salesman = null; localStorage.removeItem('lastSalesman'); showPage('page-salesman-selection'); });
+        const processAdminData = () => {
+            const itemCosts = new Map(appState.items.map(i => [String(i.Code), parseFloat(i.CostRate) || 0]));
+            const allOrders = Object.values(appState.orders).flat();
+            
+            let totalRevenue = 0, totalCost = 0, totalOrders = allOrders.length;
+            const salesBySalesman = {};
+            const salesByItem = {};
+
+            allOrders.forEach(order => {
+                const salesman = order.salesman || 'N/A';
+                if (!salesBySalesman[salesman]) {
+                    salesBySalesman[salesman] = { revenue: 0, cost: 0, orderCount: 0 };
+                }
+                salesBySalesman[salesman].orderCount++;
+                
+                (order.items || []).forEach(orderItem => {
+                    const revenue = orderItem.quantity * orderItem.sellingPrice;
+                    const cost = (itemCosts.get(String(orderItem.item.Code)) || 0) * orderItem.quantity;
+                    totalRevenue += revenue;
+                    totalCost += cost;
+                    salesBySalesman[salesman].revenue += revenue;
+                    salesBySalesman[salesman].cost += cost;
+                    const itemName = orderItem.item.ItemName;
+                    if(!salesByItem[itemName]) { salesByItem[itemName] = { quantity: 0, revenue: 0 }; }
+                    salesByItem[itemName].quantity += orderItem.quantity;
+                    salesByItem[itemName].revenue += revenue;
+                });
+            });
+            
+            const todayStr = new Date().toLocaleDateString();
+            const collectionsBySalesman = {};
+            let grandTotalCash = 0, grandTotalUPI = 0;
+
+            Object.values(appState.payments).flat().forEach(p => {
+                if (new Date(p.date).toLocaleDateString() === todayStr) {
+                    const salesman = p.salesman || 'N/A';
+                    if (!collectionsBySalesman[salesman]) {
+                        collectionsBySalesman[salesman] = { cash: 0, upi: 0 };
+                    }
+                    if (p.method === 'Cash') {
+                        collectionsBySalesman[salesman].cash += p.amount;
+                        grandTotalCash += p.amount;
+                    } else if (p.method === 'UPI') {
+                        collectionsBySalesman[salesman].upi += p.amount;
+                        grandTotalUPI += p.amount;
+                    }
+                }
+            });
+
+            return {
+                totalRevenue, totalProfit: totalRevenue - totalCost, totalOrders,
+                salesBySalesman, topItems: Object.entries(salesByItem).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 10),
+                collectionsBySalesman, grandTotalCash, grandTotalUPI
+            };
+        };
+
+        const renderAdminDashboard = () => {
+            const container = document.getElementById('admin-dashboard-content');
+            if (appState.items.length === 0) {
+                container.innerHTML = `<div class="card" style="text-align: center;">Loading data...</div>`;
+                return;
+            }
+
+            const data = processAdminData();
+            const totalMargin = data.totalRevenue > 0 ? (data.totalProfit / data.totalRevenue) * 100 : 0;
+            
+            const salesmanListHtml = Object.entries(data.salesBySalesman)
+                .sort((a,b) => b[1].revenue - a[1].revenue)
+                .map(([name, sData]) => {
+                    const profit = sData.revenue - sData.cost;
+                    const margin = sData.revenue > 0 ? (profit / sData.revenue) * 100 : 0;
+                    return `
+                        <li class="data-list-item" data-salesman="${name}">
+                            <div class="item-main">${name}</div>
+                            <div class="item-details">
+                                <span class="value-primary">${formatCurrency(sData.revenue)}</span>
+                                <span class="value-secondary">
+                                    <span class="${profit >= 0 ? 'profit' : 'loss'}">
+                                        ${formatCurrency(profit)} (${margin.toFixed(1)}%)
+                                    </span>
+                                </span>
+                            </div>
+                        </li>`;
+                }).join('') || `<li style="padding: 15px 5px; text-align: center; color: #6c757d;">No sales data available.</li>`;
+
+            const topItemsListHtml = data.topItems.map(([name, iData]) => `
+                <li class="data-list-item" style="cursor:default;">
+                    <div class="item-main">${name}</div>
+                    <div class="item-details">
+                        <span class="value-primary">${formatCurrency(iData.revenue)}</span>
+                        <span class="value-secondary">Qty: ${iData.quantity}</span>
+                    </div>
+                </li>`).join('') || `<li style="padding: 15px 5px; text-align: center; color: #6c757d;">No item data available.</li>`;
+
+            const grandTotalPayments = data.grandTotalCash + data.grandTotalUPI;
+            const salesmanPaymentsHtml = Object.entries(data.collectionsBySalesman).map(([name, pData]) => `
+                <div class="salesman-header">${name}</div>
+                <ul class="salesman-breakdown">
+                    <li><span>Cash</span> <span>${formatCurrency(pData.cash)}</span></li>
+                    <li><span>UPI</span> <span>${formatCurrency(pData.upi)}</span></li>
+                    <li><span>Sub-Total</span> <span>${formatCurrency(pData.cash + pData.upi)}</span></li>
+                </ul>
+            `).join('');
+
+            const collectionsHtml = Object.keys(data.collectionsBySalesman).length > 0 ? salesmanPaymentsHtml : `<li style="padding: 15px 5px; text-align: center; color: #6c757d;">No collections today.</li>`;
+
+
+            container.innerHTML = `
+                <div class="dashboard-grid">
+                    <div class="kpi-row">
+                        <div class="kpi-card-small">
+                            <div class="value">${formatCurrency(data.totalRevenue)}</div>
+                            <div class="label">Total Revenue</div>
+                        </div>
+                        <div class="kpi-card-small">
+                            <div class="value">${formatCurrency(data.totalProfit)}</div>
+                            <div class="label">Total Profit</div>
+                        </div>
+                         <div class="kpi-card-small">
+                            <div class="value">${data.totalOrders}</div>
+                            <div class="label">Total Orders</div>
+                        </div>
+                        <div class="kpi-card-small">
+                            <div class="value ${totalMargin >= 0 ? 'profit' : 'loss'}">${totalMargin.toFixed(1)}%</div>
+                            <div class="label">Overall Margin</div>
+                        </div>
+                    </div>
+                    <div class="data-list-card">
+                        <h3>Sales by Salesman</h3>
+                        <ul class="data-list-container">${salesmanListHtml}</ul>
+                    </div>
+                    <div class="data-list-card">
+                        <h3>Top Selling Items</h3>
+                        <ul class="data-list-container">${topItemsListHtml}</ul>
+                    </div>
+                     <div class="data-list-card">
+                        <h3>Today's Collections</h3>
+                        <ul class="payment-summary-list">
+                            <li><span>Total Cash</span><strong>${formatCurrency(data.grandTotalCash)}</strong></li>
+                            <li><span>Total UPI</span><strong>${formatCurrency(data.grandTotalUPI)}</strong></li>
+                            <li style="font-size: 1.1rem;"><span>Grand Total</span><strong>${formatCurrency(grandTotalPayments)}</strong></li>
+                            ${collectionsHtml}
+                        </ul>
+                    </div>
+                </div>`;
+        };
+
+        const renderSalesmanReport = (salesmanName) => {
+            appState.reporting.salesman = salesmanName;
+            document.getElementById('salesman-report-header').textContent = `${salesmanName}'s Report`;
+            const container = document.getElementById('salesman-report-content');
+            const salesmanOrders = appState.orders[salesmanName] || [];
+            
+            const customerData = {};
+            let totalRevenue = 0, totalCost = 0;
+            const itemCosts = new Map(appState.items.map(i => [String(i.Code), parseFloat(i.CostRate) || 0]));
+
+            salesmanOrders.forEach(order => {
+                const customerName = order.customer.Customer || 'Unknown';
+                if(!customerData[customerName]) { customerData[customerName] = { revenue: 0, cost: 0, orderCount: 0 }; }
+                customerData[customerName].orderCount++;
+                (order.items || []).forEach(item => {
+                    const revenue = item.quantity * item.sellingPrice;
+                    const cost = (itemCosts.get(String(item.item.Code)) || 0) * item.quantity;
+                    customerData[customerName].revenue += revenue;
+                    customerData[customerName].cost += cost;
+                    totalRevenue += revenue;
+                    totalCost += cost;
+                });
+            });
+
+            const customerListHtml = Object.entries(customerData)
+                .sort((a,b) => b[1].revenue - a[1].revenue)
+                .map(([name, cData]) => {
+                    const profit = cData.revenue - cData.cost;
+                    const margin = cData.revenue > 0 ? (profit / cData.revenue) * 100 : 0;
+                    return `
+                    <li class="data-list-item" data-customer="${name}">
+                        <div class="item-main">${name}</div>
+                        <div class="item-details">
+                            <span class="value-primary">${formatCurrency(cData.revenue)}</span>
+                             <span class="value-secondary">
+                                <span class="${profit >= 0 ? 'profit' : 'loss'}">
+                                    ${formatCurrency(profit)} (${margin.toFixed(1)}%)
+                                </span>
+                            </span>
+                        </div>
+                    </li>`;
+                }).join('');
+
+            const totalProfit = totalRevenue - totalCost;
+            const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+            container.innerHTML = `
+                <div class="report-header-card">
+                    <div><div class="label">Total Revenue</div><div class="value">${formatCurrency(totalRevenue)}</div></div>
+                    <div><div class="label">Total Profit</div><div class="value ${totalProfit >= 0 ? 'profit' : 'loss'}">${formatCurrency(totalProfit)}</div></div>
+                    <div><div class="label">Profit Margin</div><div class="value ${totalMargin >= 0 ? 'profit' : 'loss'}">${totalMargin.toFixed(1)}%</div></div>
+                </div>
+                <div class="data-list-card">
+                    <h3>Sales by Customer</h3>
+                    <ul class="data-list-container">${customerListHtml || '<li style="text-align:center;padding:20px;">No customers found.</li>'}</ul>
+                </div>
+            `;
+            showPage('page-salesman-report');
+        };
+
+        const renderCustomerReport = (salesmanName, customerName) => {
+            appState.reporting.customer = customerName;
+            document.getElementById('customer-report-header').textContent = `${customerName}`;
+            const container = document.getElementById('customer-report-content');
+            const itemCosts = new Map(appState.items.map(i => [String(i.Code), parseFloat(i.CostRate) || 0]));
+            
+            const customerOrders = (appState.orders[salesmanName] || []).filter(o => o.customer.Customer === customerName);
+            const itemData = {};
+            
+            customerOrders.forEach(order => {
+                (order.items || []).forEach(item => {
+                    const itemName = item.item.ItemName;
+                    const itemCode = String(item.item.Code);
+                    if(!itemData[itemName]) { itemData[itemName] = { quantity: 0, revenue: 0, cost: 0 }; }
+                    itemData[itemName].quantity += item.quantity;
+                    itemData[itemName].revenue += item.quantity * item.sellingPrice;
+                    itemData[itemName].cost += item.quantity * (itemCosts.get(itemCode) || 0);
+                });
+            });
+
+            let totalCustomerRevenue = 0;
+            let totalCustomerProfit = 0;
+
+            Object.values(itemData).forEach(iData => {
+                totalCustomerRevenue += iData.revenue;
+                totalCustomerProfit += (iData.revenue - iData.cost);
+            });
+            const totalCustomerMargin = totalCustomerRevenue > 0 ? (totalCustomerProfit / totalCustomerRevenue) * 100 : 0;
+
+            const tableRowsHtml = Object.entries(itemData)
+                .sort((a,b) => b[1].revenue - a[1].revenue)
+                .map(([name, iData]) => {
+                    const profit = iData.revenue - iData.cost;
+                    const margin = iData.revenue > 0 ? (profit / iData.revenue) * 100 : 0;
+                    return `
+                    <tr>
+                        <td>${name}</td>
+                        <td class="numeric">${iData.quantity}</td>
+                        <td class="numeric">${formatCurrency(iData.revenue)}</td>
+                        <td class="numeric ${profit >= 0 ? 'profit' : 'loss'}">${formatCurrency(profit)}</td>
+                        <td class="numeric ${margin >= 0 ? 'profit' : 'loss'}">${margin.toFixed(1)}%</td>
+                    </tr>`;
+                }).join('');
+
+            container.innerHTML = `
+                <div class="report-header-card">
+                    <div><div class="label">Total Revenue</div><div class="value">${formatCurrency(totalCustomerRevenue)}</div></div>
+                    <div><div class="label">Total Profit</div><div class="value ${totalCustomerProfit >= 0 ? 'profit' : 'loss'}">${formatCurrency(totalCustomerProfit)}</div></div>
+                    <div><div class="label">Profit Margin</div><div class="value ${totalCustomerMargin >= 0 ? 'profit' : 'loss'}">${totalCustomerMargin.toFixed(1)}%</div></div>
+                </div>
+                <div class="card">
+                <table class="report-table">
+                    <thead>
+                        <tr><th>Product</th><th class="numeric">Qty</th><th class="numeric">Revenue</th><th class="numeric">Profit</th><th class="numeric">Margin</th></tr>
+                    </thead>
+                    <tbody>${tableRowsHtml}</tbody>
+                </table>
+                </div>
+            `;
+            showPage('page-customer-report');
+        };
+        
+        document.getElementById('admin-dashboard-content').addEventListener('click', (e) => {
+            const salesmanItem = e.target.closest('.data-list-item[data-salesman]');
+            if (salesmanItem) {
+                renderSalesmanReport(salesmanItem.dataset.salesman);
+            }
+        });
+        document.getElementById('salesman-report-content').addEventListener('click', (e) => {
+            const customerItem = e.target.closest('.data-list-item[data-customer]');
+            if(customerItem) {
+                renderCustomerReport(appState.reporting.salesman, customerItem.dataset.customer);
+            }
+        });
+
+        document.getElementById('back-to-admin-dashboard-btn').addEventListener('click', () => showPage('page-admin-dashboard'));
+        document.getElementById('back-to-salesman-report-btn').addEventListener('click', () => showPage('page-salesman-report'));
+        
+        // --- End of Admin Logic ---
+
+        document.getElementById('page-salesman-selection').addEventListener('click', (e) => {
+            if (e.target.matches('.button')) {
+                const salesman = e.target.dataset.salesman;
+                appState.salesman = salesman;
+                localStorage.setItem('lastSalesman', salesman);
+                const footer = document.getElementById('footer');
+                if (salesman === 'ADMIN') {
+                    if(footer) footer.style.display = 'none';
+                    renderAdminDashboard();
+                    showPage('page-admin-dashboard');
+                } else {
+                    if(footer) footer.style.display = 'flex';
+                    document.getElementById('main-view-header').textContent = `Order Taking`;
+                    renderCurrentView(); // Call after setting salesman
+                    showPage('page-main-view');
+                }
+            }
+        });
+
+        const handleLogout = () => { appState.salesman = null; localStorage.removeItem('lastSalesman'); showPage('page-salesman-selection'); };
+        document.getElementById('logout-btn').addEventListener('click', handleLogout);
+        document.getElementById('admin-logout-btn').addEventListener('click', handleLogout);
+
         document.getElementById('customer-list-container').addEventListener('click', (e) => { if (e.target.matches('.list-item-action')) { appState.customer = JSON.parse(e.target.dataset.customer); document.getElementById('order-customer-name').textContent = appState.customer.Customer; appState.currentOrder = []; renderOrderSummary(); showPage('page-order'); } });
         
         const customerView = document.getElementById('customer-view'), paymentView = document.getElementById('payment-view'), mainHeader = document.getElementById('main-view-header');
-        const renderCurrentView = () => { if (appState.currentView === 'orders') renderCustomerList('customer-list-container', 'Take Order'); else renderCustomerList('payment-customer-list-container', 'Collect'); };
+        const renderCurrentView = () => {
+            if (appState.salesman === 'ADMIN') return;
+            if (appState.currentView === 'orders') {
+                const filter = document.getElementById('customer-search-input').value;
+                renderCustomerList('customer-list-container', 'Take Order', filter);
+            } else {
+                const filter = document.getElementById('payment-customer-search-input').value;
+                renderCustomerList('payment-customer-list-container', 'Collect', filter);
+            }
+        };
+
+        document.getElementById('customer-search-input').addEventListener('input', () => renderCurrentView());
+        document.getElementById('payment-customer-search-input').addEventListener('input', () => renderCurrentView());
+
+
         document.querySelectorAll('.footer-button').forEach(btn => btn.addEventListener('click', (e) => {
             const current = e.currentTarget;
             document.querySelectorAll('.footer-button').forEach(b => b.classList.remove('active'));
@@ -490,111 +1002,44 @@
             customerView.style.display = 'none'; paymentView.style.display = 'none';
             appState.currentView = current.id === 'orders-tab-btn' ? 'orders' : 'payments';
             mainHeader.textContent = appState.currentView === 'orders' ? 'Order Taking' : 'Payments';
-            if (appState.currentView === 'orders') { customerView.style.display = 'block'; renderCustomerList('customer-list-container', 'Take Order'); } 
-            else { paymentView.style.display = 'block'; renderCustomerList('payment-customer-list-container', 'Collect'); }
+            renderCurrentView();
+            if (appState.currentView === 'orders') { customerView.style.display = 'block';} else { paymentView.style.display = 'block'; }
         }));
         document.getElementById('history-icon-btn').addEventListener('click', () => {
             if (appState.currentView === 'orders') { renderHistory('orders'); showPage('page-order-history'); } 
             else { renderHistory('payments'); showPage('page-payment-history'); }
         });
-        document.getElementById('settings-icon-btn').addEventListener('click', () => showPage('page-settings'));
-        document.querySelectorAll('#back-to-main-btn-order-history, #back-to-main-btn-payment-history, #back-to-main-btn-settings, #back-to-main-btn-payment, #back-to-customers-btn, #back-to-settings-btn').forEach(btn => btn.addEventListener('click', (e) => {
-            if (e.currentTarget.id === 'back-to-settings-btn') showPage('page-settings'); else showPage('page-main-view');
+        
+        const showSettingsPage = () => { showPage('page-settings'); };
+        document.getElementById('settings-icon-btn').addEventListener('click', showSettingsPage);
+        document.getElementById('admin-settings-btn').addEventListener('click', showSettingsPage);
+        
+        document.querySelectorAll('#back-to-main-btn-order-history, #back-to-main-btn-payment-history, #back-to-main-btn-payment, #back-to-customers-btn').forEach(btn => btn.addEventListener('click', () => {
+             showPage('page-main-view');
         }));
+        
+        document.getElementById('back-from-settings-btn').addEventListener('click', () => {
+             if(appState.salesman === 'ADMIN') { showPage('page-admin-dashboard'); }
+             else { showPage('page-main-view'); }
+        });
+        
+        document.getElementById('back-to-settings-btn').addEventListener('click', () => {
+             showPage('page-settings');
+        });
 
         document.getElementById('item-search-input').addEventListener('input', (e) => renderItemSearchResults(e.target.value));
-        document.getElementById('item-search-results').addEventListener('click', (e) => {
-            if (e.target.matches('.search-result-item')) {
-                const code = e.target.dataset.itemCode;
-                appState.selectedItem = appState.items.find(i => i.Code == code);
-                document.getElementById('item-search-input').value = appState.selectedItem.ItemName;
-                document.getElementById('item-search-results').innerHTML = '';
-                renderSelectedItemDetails();
-            }
-        });
-        document.querySelector('.price-options').addEventListener('click', e => {
-            const opt = e.target.closest('.price-option'); if (!opt) return;
-            document.querySelectorAll('.price-option').forEach(el => el.classList.remove('selected'));
-            opt.classList.add('selected'); appState.selectedPriceOption = opt.id;
-            const cIn = document.getElementById('custom-price-input'), cMar = document.getElementById('custom-price-margin');
-            cIn.style.display = (opt.id === 'custom-price-option') ? 'block' : 'none';
-            if (opt.id === 'custom-price-option') cIn.focus(); else cMar.textContent = '';
-        });
-        document.getElementById('custom-price-input').addEventListener('input', e => {
-            const price = parseFloat(e.target.value), cost = appState.selectedItem.CostRate, marginDisp = document.getElementById('custom-price-margin');
-            if (!isNaN(price) && cost > 0) { const margin = ((price - cost) / cost) * 100; marginDisp.textContent = `Margin: ${margin.toFixed(2)}%`; marginDisp.style.color = margin < 0 ? '#e63946' : '#2a9d8f'; } else { marginDisp.textContent = ''; }
-        });
-        document.getElementById('add-item-btn').addEventListener('click', () => {
-            const qty = parseInt(document.getElementById('item-quantity').value);
-            if (!appState.selectedItem || !appState.selectedPriceOption || isNaN(qty) || qty <= 0) { alert('Please select an item, price, and quantity.'); return; }
-            let price;
-            switch(appState.selectedPriceOption) {
-                case 'price1-option': price = appState.selectedItem.Price1; break;
-                case 'price2-option': price = appState.selectedItem.Price2; break;
-                case 'price3-option': price = appState.selectedItem.Price3; break;
-                case 'custom-price-option': price = parseFloat(document.getElementById('custom-price-input').value); if (isNaN(price) || price < 0) { alert('Invalid custom price.'); return; } break;
-            }
-            appState.currentOrder.push({ item: appState.selectedItem, quantity: qty, sellingPrice: price });
-            appState.selectedItem = null; appState.selectedPriceOption = null;
-            document.getElementById('item-search-input').value = ''; document.getElementById('item-quantity').value = '';
-            document.getElementById('item-details-form').style.display = 'none'; document.querySelectorAll('.price-option').forEach(el => el.classList.remove('selected'));
-            document.getElementById('custom-price-input').style.display = 'none'; document.getElementById('custom-price-input').value = ''; document.getElementById('custom-price-margin').textContent = '';
-            renderOrderSummary();
-        });
+        document.getElementById('item-search-results').addEventListener('click', (e) => { if (e.target.matches('.search-result-item')) { const code = e.target.dataset.itemCode; appState.selectedItem = appState.items.find(i => i.Code == code); document.getElementById('item-search-input').value = appState.selectedItem.ItemName; document.getElementById('item-search-results').innerHTML = ''; renderSelectedItemDetails(); } });
+        document.querySelector('.price-options').addEventListener('click', e => { const opt = e.target.closest('.price-option'); if (!opt) return; document.querySelectorAll('.price-option').forEach(el => el.classList.remove('selected')); opt.classList.add('selected'); appState.selectedPriceOption = opt.id; const cIn = document.getElementById('custom-price-input'), cMar = document.getElementById('custom-price-margin'); cIn.style.display = (opt.id === 'custom-price-option') ? 'block' : 'none'; if (opt.id === 'custom-price-option') cIn.focus(); else cMar.textContent = ''; });
+        document.getElementById('custom-price-input').addEventListener('input', e => { const price = parseFloat(e.target.value), cost = appState.selectedItem.CostRate, marginDisp = document.getElementById('custom-price-margin'); if (!isNaN(price) && cost > 0) { const margin = ((price - cost) / cost) * 100; marginDisp.textContent = `Margin: ${margin.toFixed(2)}%`; marginDisp.style.color = margin < 0 ? '#e63946' : '#2a9d8f'; } else { marginDisp.textContent = ''; } });
+        document.getElementById('add-item-btn').addEventListener('click', () => { const qty = parseInt(document.getElementById('item-quantity').value); if (!appState.selectedItem || !appState.selectedPriceOption || isNaN(qty) || qty <= 0) { alert('Please select an item, price, and quantity.'); return; } let price; switch(appState.selectedPriceOption) { case 'price1-option': price = appState.selectedItem.Price1; break; case 'price2-option': price = appState.selectedItem.Price2; break; case 'price3-option': price = appState.selectedItem.Price3; break; case 'custom-price-option': price = parseFloat(document.getElementById('custom-price-input').value); if (isNaN(price) || price < 0) { alert('Invalid custom price.'); return; } break; } appState.currentOrder.push({ item: appState.selectedItem, quantity: qty, sellingPrice: price }); appState.selectedItem = null; appState.selectedPriceOption = null; document.getElementById('item-search-input').value = ''; document.getElementById('item-quantity').value = ''; document.getElementById('item-details-form').style.display = 'none'; document.querySelectorAll('.price-option').forEach(el => el.classList.remove('selected')); document.getElementById('custom-price-input').style.display = 'none'; document.getElementById('custom-price-input').value = ''; document.getElementById('custom-price-margin').textContent = ''; renderOrderSummary(); });
         document.getElementById('order-items-list').addEventListener('click', e => { if (e.target.matches('.delete-btn')) { appState.currentOrder.splice(parseInt(e.target.dataset.index), 1); renderOrderSummary(); } });
         
-        document.getElementById('confirm-order-btn').addEventListener('click', async () => {
-            if (appState.currentOrder.length === 0) { alert('Cannot confirm an empty order.'); return; }
-            const total = appState.currentOrder.reduce((s, i) => s + (i.quantity * i.sellingPrice), 0);
-            const newOrder = { 
-                customer: { Customer: appState.customer.Customer, Phone: appState.customer.Phone }, 
-                items: appState.currentOrder.map(i => ({ item: { ItemName: i.item.ItemName, Code: i.item.Code }, quantity: i.quantity, sellingPrice: i.sellingPrice })),
-                total: total, 
-                salesman: appState.salesman,
-                date: new Date().toISOString() 
-            };
-            const docRef = doc(collection(db, "orders"));
-            await setDoc(docRef, newOrder);
-            showShareModal('Order Saved!', 'Share the order summary with the customer.');
-            generateShareableImage('order-invoice');
-        });
+        document.getElementById('confirm-order-btn').addEventListener('click', async () => { if (appState.currentOrder.length === 0) { alert('Cannot confirm an empty order.'); return; } const total = appState.currentOrder.reduce((s, i) => s + (i.quantity * i.sellingPrice), 0); const newOrder = { customer: { Customer: appState.customer.Customer, Phone: appState.customer.Phone }, items: appState.currentOrder.map(i => ({ item: { ItemName: i.item.ItemName, Code: i.item.Code }, quantity: i.quantity, sellingPrice: i.sellingPrice })), total, salesman: appState.salesman, date: new Date().toISOString() }; await setDoc(doc(collection(db, "orders")), newOrder); showShareModal('Order Saved!', 'Share the order summary with the customer.'); generateShareableImage('order-invoice'); });
 
-        document.getElementById('payment-customer-list-container').addEventListener('click', (e) => {
-            if (e.target.matches('.list-item-action')) {
-                appState.currentPayment.customer = JSON.parse(e.target.dataset.customer);
-                document.getElementById('payment-customer-name').textContent = `For ${appState.currentPayment.customer.Customer}`;
-                document.getElementById('payment-amount').value = '';
-                document.getElementById('confirm-payment-btn').style.display = 'block';
-                document.getElementById('print-receipt-btn').style.display = 'none';
-                showPage('page-payment');
-            }
-        });
+        document.getElementById('payment-customer-list-container').addEventListener('click', (e) => { if (e.target.matches('.list-item-action')) { appState.currentPayment.customer = JSON.parse(e.target.dataset.customer); document.getElementById('payment-customer-name').textContent = `For ${appState.currentPayment.customer.Customer}`; document.getElementById('payment-amount').value = ''; document.getElementById('confirm-payment-btn').style.display = 'block'; document.getElementById('print-receipt-btn').style.display = 'none'; showPage('page-payment'); } });
         document.querySelector('.payment-method-options').addEventListener('click', e => { if (e.target.matches('.payment-method-option')) { document.querySelectorAll('.payment-method-option').forEach(el => el.classList.remove('selected')); e.target.classList.add('selected'); } });
-        document.getElementById('confirm-payment-btn').addEventListener('click', async () => {
-            const amount = parseFloat(document.getElementById('payment-amount').value);
-            if (isNaN(amount) || amount <= 0) { alert('Please enter a valid amount.'); return; }
-            const method = document.querySelector('.payment-method-option.selected').dataset.method;
-            const newPayment = { 
-                customer: { Customer: appState.currentPayment.customer.Customer }, 
-                amount, method, salesman: appState.salesman,
-                date: new Date().toISOString() 
-            };
-            const docRef = doc(collection(db, "payments"));
-            await setDoc(docRef, newPayment);
-            appState.currentPayment = newPayment;
-            document.getElementById('confirm-payment-btn').style.display = 'none';
-            document.getElementById('print-receipt-btn').style.display = 'block';
-            alert('Payment saved!');
-        });
-        document.getElementById('print-receipt-btn').addEventListener('click', () => {
-            const p = appState.currentPayment;
-            document.getElementById('receipt-date').textContent = new Date(p.date).toLocaleString();
-            document.getElementById('receipt-salesman').textContent = appState.salesman;
-            document.getElementById('receipt-customer').textContent = p.customer.Customer;
-            document.getElementById('receipt-amount').textContent = formatCurrency(p.amount);
-            document.getElementById('receipt-method').textContent = p.method;
-            window.print();
-        });
+        document.getElementById('confirm-payment-btn').addEventListener('click', async () => { const amount = parseFloat(document.getElementById('payment-amount').value); if (isNaN(amount) || amount <= 0) { alert('Please enter a valid amount.'); return; } const method = document.querySelector('.payment-method-option.selected').dataset.method; const newPayment = { customer: { Customer: appState.currentPayment.customer.Customer }, amount, method, salesman: appState.salesman, date: new Date().toISOString() }; await setDoc(doc(collection(db, "payments")), newPayment); appState.currentPayment = newPayment; document.getElementById('confirm-payment-btn').style.display = 'none'; document.getElementById('print-receipt-btn').style.display = 'block'; alert('Payment saved!'); });
+        document.getElementById('print-receipt-btn').addEventListener('click', () => { const p = appState.currentPayment; document.getElementById('receipt-date').textContent = new Date(p.date).toLocaleString(); document.getElementById('receipt-salesman').textContent = appState.salesman; document.getElementById('receipt-customer').textContent = p.customer.Customer; document.getElementById('receipt-amount').textContent = formatCurrency(p.amount); document.getElementById('receipt-method').textContent = p.method; window.print(); });
         
         const shareModal = document.getElementById('share-modal');
         const showShareModal = (title, text) => { document.getElementById('share-modal-title').textContent = title; document.getElementById('share-modal-text').textContent = text; shareModal.style.display = 'flex'; };
@@ -627,9 +1072,8 @@
             canvas.toBlob(async (blob) => {
                 try {
                     const file = new File([blob], filename, { type: 'image/jpeg' });
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                        await navigator.share({ files: [file], title: 'Order Summary' });
-                    } else { alert("Web Share not supported. You can long-press the image to save/share."); }
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Order Summary' }); } 
+                    else { alert("Web Share not supported. You can long-press the image to save/share."); }
                 } catch (error) { console.error('Share failed:', error); alert("Could not share."); }
             }, 'image/jpeg');
         });
@@ -639,11 +1083,19 @@
             const paymentsToday = (appState.payments[appState.salesman] || []).filter(p => new Date(p.date).toLocaleDateString() === today);
             if (paymentsToday.length === 0) { alert("No collections made today."); return; }
             
-            let reportTotal = 0;
+            let totalCash = 0, totalUPI = 0;
             document.getElementById('report-salesman').textContent = `Salesman: ${appState.salesman}`;
             document.getElementById('report-date').textContent = `Date: ${today}`;
-            document.getElementById('report-table-body').innerHTML = paymentsToday.map(p => { reportTotal += p.amount; return `<tr><td class="col-customer-name">${p.customer.Customer}</td><td class="col-method">${p.method}</td><td class="col-amount">${formatCurrency(p.amount)}</td></tr>`; }).join('');
-            document.getElementById('report-grand-total').textContent = `Total: ${formatCurrency(reportTotal)}`;
+            document.getElementById('report-table-body').innerHTML = paymentsToday.map(p => {
+                if (p.method.toLowerCase() === 'cash') totalCash += p.amount;
+                else if (p.method.toLowerCase() === 'upi') totalUPI += p.amount;
+                return `<tr><td class="col-customer-name">${p.customer.Customer}</td><td class="col-method">${p.method}</td><td class="col-amount">${formatCurrency(p.amount)}</td></tr>`;
+            }).join('');
+            document.getElementById('report-totals').innerHTML = `
+                <div>Total Cash: ${formatCurrency(totalCash)}</div>
+                <div>Total UPI: ${formatCurrency(totalUPI)}</div>
+            `;
+            document.getElementById('report-grand-total').textContent = `Grand Total: ${formatCurrency(totalCash + totalUPI)}`;
             
             showShareModal("Today's Report", "Share the daily collection summary.");
             generateShareableImage('collection-report');
@@ -718,26 +1170,22 @@
             const isCustomers = appState.editing.type === 'customers';
             const id = appState.editing.id;
             let updatedData = {};
-            if (isCustomers) {
-                updatedData = { Customer: document.getElementById('edit-Customer').value, Salesman: document.getElementById('edit-Salesman').value, Phone: document.getElementById('edit-Phone').value };
-            } else {
-                const fields = ['ItemName', 'CostRate', 'Price1', 'Price2', 'Price3'];
-                fields.forEach(field => { const input = document.getElementById(`edit-${field}`); updatedData[field] = input.type === 'number' ? parseFloat(input.value) : input.value; });
-            }
+            if (isCustomers) { updatedData = { Customer: document.getElementById('edit-Customer').value, Salesman: document.getElementById('edit-Salesman').value, Phone: document.getElementById('edit-Phone').value }; } 
+            else { const fields = ['ItemName', 'CostRate', 'Price1', 'Price2', 'Price3']; fields.forEach(field => { const input = document.getElementById(`edit-${field}`); updatedData[field] = input.type === 'number' ? parseFloat(input.value) : input.value; }); }
             await updateDoc(doc(db, isCustomers ? 'customers' : 'items', id), updatedData);
             closeEditModal();
             alert('Record updated successfully!');
         });
 
         const setupPWA = () => {
-            const manifest = { "name": "MF BigMarket Orders", "short_name": "BigMarket", "start_url": ".", "display": "standalone", "background_color": "#e0f7fa", "theme_color": "#005f73", "description": "An order and payment management app.", "icons": [ { "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIiB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiI+PGNpcmNsZSBjeD0iOTYiIGN5PSI5NiIgcj0iOTYiIGZpbGw9IiMwMDVmNzMiLz48dGV4dCB4PSI5NiIgeT0iMTQwIiBmb250LXNpemU9IjkwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmYiPkJNPC90ZXh0Pjwvc3ZnPg==", "sizes": "192x192", "type": "image/svg+xml" }, { "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIyNTYiIGZpbGw9IiMwMDVmNzMiLz48dGV4dCB4PSIyNTYiIHk9IjM2MiIgZm9udC1zaXplPSIyNDAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2ZmZiI+Qk08L3RleHQ+PC9zdmc+", "sizes": "512x512", "type": "image/svg+xml" } ] };
+            const manifest = { "name": "MF BigMarket Orders", "short_name": "BigMarket", "start_url": ".", "display": "standalone", "background_color": "#e0f7fa", "theme_color": "#005f73", "description": "An order and payment management app.", "icons": [ { "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIiB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiI+PGNpcmNsZSBjeD0iOTYiIGN5PSI5NiIgcj0iOTYiIGZpbGw9IiMwMDVmNzMiLz48dGV4dCB4PSI5NiIgeT0iMTQwIiBmb250LXNpemU9IjkwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaGyPSJtaWRkbGUiIGZpbGw9IiNmZmYiPkJNPC90ZXh0Pjwvc3ZnPg==", "sizes": "192x192", "type": "image/svg+xml" }, { "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIyNTYiIGZpbGw9IiMwMDVmNzMiLz48dGV4dCB4PSIyNTYiIHk9IjM2MiIgZm9udC1zaXplPSIyNDAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2ZmZiI+Qk08L3RleHQ+PC9zdmc+", "sizes": "512x512", "type": "image/svg+xml" } ] };
             const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
             const manifestURL = URL.createObjectURL(manifestBlob);
             const linkEl = document.createElement('link'); linkEl.rel = 'manifest'; linkEl.href = manifestURL;
             document.head.appendChild(linkEl);
 
             if ('serviceWorker' in navigator && !location.href.startsWith('file')) {
-                const swCode = `const CACHE_NAME = 'bigmarket-pwa-v2'; const URLS_TO_CACHE = ['.', 'index.html']; self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(URLS_TO_CACHE))); }); self.addEventListener('fetch', e => { e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))); });`;
+                const swCode = `const CACHE_NAME = 'bigmarket-pwa-v1'; const URLS_TO_CACHE = ['.', 'index.html']; self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(URLS_TO_CACHE))); }); self.addEventListener('fetch', e => { e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))); });`;
                 const swBlob = new Blob([swCode], { type: 'application/javascript' });
                 const swURL = URL.createObjectURL(swBlob);
                 window.addEventListener('load', () => { navigator.serviceWorker.register(swURL).then(reg => console.log('SW registered.')).catch(err => console.log('SW registration failed: ', err)); });
