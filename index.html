@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Order Management</title>
     
-    <!-- PWA Meta Tags -->
+    <!-- PWA Meta Tags & Manifest -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#005f73">
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48Y2lyY2xlIGN4PSI5NiIgY3k9Ijk2IiByPSI5NiIgZmlsbD0iIzAwNWY3MyIvPjx0ZXh0IHg9Ijk2IiB5PSIxMzYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjkwIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2ZmZiI+TUY8L3RleHQ+PC9zdmc+">
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIk1GIEJpZ01hcmtldCBPcmRlcnMiLAogICJzaG9ydF9uYW1lIjogIkJpZ01hcmtldCIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZTBmN2ZhIiwKICAidGhlbWVfY29sb3IiOiAiIzAwNWY3MyIsCiAgImRlc2NyaXB0aW9uIjogIkFuIG9yZGVyIGFuZCBwYXltZW50IG1hbmFnZW1lbnQgYXBwLiIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlp5QjRiV3h1Y3owaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1qQXdNQzl6ZG1jbklHSnBiV3c5SW5oTmFXNVpUV2x5WVhScGIyNGdkM2c3SUdacGJHdzlJbUp2ZUNCbGRtVnNaWFF2YjI1aGNIVnlkbWxqWldZdmJXRnpiRzlrZVNCM2FXUjBhRDBpTUNBd0lDQWdJRDBpTVRBd0pTSWdMejQ4YzNSbFpYSnBibWN2YzJsdmJnPT0iLAogICAgICAic2l6ZXMiOiAiMTkyeDE5MiIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiCiAgICB9LAogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlp5QjRiV3h1Y3owaWFIUjBjRG9ovaJpdT0iNTEyeDUxMiI+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIyNTYiIGZpbGw9IiMwMDVmNzMiLz48dGV4dCB4PSIyNTYiIHk9IjM3MCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjUwIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2ZmZiI+TUY8L3RleHQ+PC9zdmc+IiwKICAgICAgInNpemVzIjogIjUxMng1MTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgfQogIF0KfQo=">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
@@ -53,7 +55,14 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: var(--light-bg); color: var(--text-color); overscroll-behavior-y: contain; }
+        html, body { 
+            height: 100%; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; 
+            background-color: var(--light-bg); 
+            color: var(--text-color); 
+            overscroll-behavior-y: contain;
+            overflow-x: hidden; /* CRITICAL FIX: Prevents horizontal scrolling */
+        }
         .page { display: none; flex-direction: column; height: 100%; width: 100%; position: absolute; top: 0; left: 0; background-color: var(--light-bg); transition: transform 0.3s ease-in-out; }
         .page.active { display: flex; }
 
@@ -1178,17 +1187,26 @@
         });
 
         const setupPWA = () => {
-            const manifest = { "name": "MF BigMarket Orders", "short_name": "BigMarket", "start_url": ".", "display": "standalone", "background_color": "#e0f7fa", "theme_color": "#005f73", "description": "An order and payment management app.", "icons": [ { "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIiB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiI+PGNpcmNsZSBjeD0iOTYiIGN5PSI5NiIgcj0iOTYiIGZpbGw9IiMwMDVmNzMiLz48dGV4dCB4PSI5NiIgeT0iMTQwIiBmb250LXNpemU9IjkwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaGyPSJtaWRkbGUiIGZpbGw9IiNmZmYiPkJNPC90ZXh0Pjwvc3ZnPg==", "sizes": "192x192", "type": "image/svg+xml" }, { "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIyNTYiIGZpbGw9IiMwMDVmNzMiLz48dGV4dCB4PSIyNTYiIHk9IjM2MiIgZm9udC1zaXplPSIyNDAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2ZmZiI+Qk08L3RleHQ+PC9zdmc+", "sizes": "512x512", "type": "image/svg+xml" } ] };
-            const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-            const manifestURL = URL.createObjectURL(manifestBlob);
-            const linkEl = document.createElement('link'); linkEl.rel = 'manifest'; linkEl.href = manifestURL;
-            document.head.appendChild(linkEl);
-
-            if ('serviceWorker' in navigator && !location.href.startsWith('file')) {
-                const swCode = `const CACHE_NAME = 'bigmarket-pwa-v1'; const URLS_TO_CACHE = ['.', 'index.html']; self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(URLS_TO_CACHE))); }); self.addEventListener('fetch', e => { e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))); });`;
+            // This function registers the service worker.
+            // PWA manifest is now directly in the <head> for better reliability.
+            if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+                const swCode = `
+                    const CACHE_NAME = 'bigmarket-pwa-v2'; 
+                    const URLS_TO_CACHE = ['.', 'index.html']; 
+                    self.addEventListener('install', e => { 
+                        e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(URLS_TO_CACHE))); 
+                    }); 
+                    self.addEventListener('fetch', e => { 
+                        e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))); 
+                    });
+                `;
                 const swBlob = new Blob([swCode], { type: 'application/javascript' });
                 const swURL = URL.createObjectURL(swBlob);
-                window.addEventListener('load', () => { navigator.serviceWorker.register(swURL).then(reg => console.log('SW registered.')).catch(err => console.log('SW registration failed: ', err)); });
+                window.addEventListener('load', () => { 
+                    navigator.serviceWorker.register(swURL)
+                        .then(reg => console.log('Service Worker registered.'))
+                        .catch(err => console.log('Service Worker registration failed: ', err)); 
+                });
             }
         };
 
